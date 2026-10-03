@@ -1,32 +1,43 @@
+export type NewsCategory = 'publication' | 'achievement' | 'field' | 'blog' | 'general';
+
 export interface NewsItem {
   id: string;
   date: string; // YYYY-MM-DD
   title: string;
   summary: string;
   link?: string;
+  category?: NewsCategory;
 }
 
-// Public news shown on the home page. Newest first. Edit this list and push to publish.
+// Public news shown on the home page. Newest first.
+// Lab members can edit or add items directly via the website interface,
+// or edit this list permanently and push to GitHub.
 export const newsItems: NewsItem[] = [
   {
     id: 'n-1',
     date: '2026-09-15',
+    category: 'achievement',
     title: 'ERSL welcomes new graduate researchers for Fall 2026',
     summary:
-      'The lab has expanded its team with new PhD students working on SWOT-based reservoir monitoring and GeoAI water quality mapping.',
+      'The lab has expanded its research cohort with graduate researchers focusing on SWOT satellite altimetry, inland water quality modeling, and GeoAI flood estimation.',
+    link: '#people',
   },
   {
     id: 'n-2',
     date: '2026-08-02',
-    title: 'New paper on satellite-based flood inundation mapping',
+    category: 'publication',
+    title: 'New paper on satellite-based flood inundation and depth mapping',
     summary:
-      'Our latest study on reach-scale flood depth mapping in the Black Warrior River basin is now available in the Publications tab.',
+      'Our latest peer-reviewed study on reach-scale flood depth modeling across the Mobile and Black Warrior River basins is now published. Explore the paper in the Publications catalog.',
+    link: '#publications',
   },
   {
     id: 'n-3',
     date: '2026-06-20',
-    title: 'Field campaign: UAV LiDAR and ADCP river surveys',
+    category: 'field',
+    title: 'Field campaign: UAV LiDAR, multispectral imaging and ADCP river surveys',
     summary:
-      'The team completed a coordinated field campaign aligned with NASA SWOT passes. See the Field Photos tab for images.',
+      'The ERSL team successfully completed a coordinated hydrological field survey calibrated against synchronized NASA satellite passes. View field photo captures in the Field tab.',
+    link: '#field',
   },
 ];
