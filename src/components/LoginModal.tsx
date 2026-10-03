@@ -41,14 +41,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
               applicant_name: name,
               applicant_email: email,
               message: `New user requested member access to ERSL Website:\n\nName: ${name}\nEmail: ${email}\n\nPlease log into https://naveen1098.github.io/ERSL/ -> Control Panel -> Members to approve this user.`,
-              recipients: 'naveenpurushothaman1098@gmail.com, hongxing.liu@ua.edu'
+              recipients: 'hongxing.liu@ua.edu, npurushothaman@ua.edu'
             }),
           });
         } catch {
           // Notification sent attempt completed
         }
 
-        setInfo('Access request sent! Administrators (naveenpurushothaman1098@gmail.com) have been notified. Once your request is approved, you will be able to log in.');
+        setInfo('Access request sent! Lab administrators have been notified. Once your request is approved, you will be able to log in.');
         setMode('signin');
       } else {
         const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });

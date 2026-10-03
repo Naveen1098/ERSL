@@ -32,6 +32,28 @@ export const UAHeader: React.FC<UAHeaderProps> = ({
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
   const [logoFailed, setLogoFailed] = useState(false);
+  const [logoSrcIndex, setLogoSrcIndex] = useState(0);
+
+  const cleanBase = (import.meta.env.BASE_URL || './').endsWith('/') 
+    ? (import.meta.env.BASE_URL || './') 
+    : (import.meta.env.BASE_URL || './') + '/';
+
+  const logoCandidates = [
+    `${cleanBase}images/logo/logo.jpg`,
+    `${cleanBase}images/logo/logo.png`,
+    'images/logo/logo.jpg',
+    'images/logo/logo.png',
+    '/images/logo/logo.jpg',
+    '/images/logo/logo.png',
+  ];
+
+  const handleLogoError = () => {
+    if (logoSrcIndex + 1 < logoCandidates.length) {
+      setLogoSrcIndex(prev => prev + 1);
+    } else {
+      setLogoFailed(true);
+    }
+  };
 
   // Navigation tabs list
   const tabs = [
@@ -93,34 +115,45 @@ export const UAHeader: React.FC<UAHeaderProps> = ({
 
       {/* Main Navigation Bar */}
       <nav className="bg-white border-b border-gray-100 shadow-sm sticky top-0 bg-opacity-95 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex justify-between items-center">
-          {/* Logo / Brand Name */}
+        <div className="max-w-7xl mx-auto px-4 md:px-8 py-3 flex justify-between items-center">
+          {/* Creative Medallion Logo & Lab Lockup */}
           <button 
             onClick={() => onTabChange('home')} 
-            className="flex items-center space-x-3 text-left focus:outline-none cursor-pointer group py-1"
+            className="flex items-center space-x-3.5 text-left focus:outline-none cursor-pointer group py-0.5"
           >
-            {/* Lab logo slot with prominent high-visibility container */}
-            <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-white border border-red-100 shadow-md p-2 flex items-center justify-center shrink-0 ring-2 ring-[#9E1B32]/15 group-hover:ring-[#9E1B32]/40 group-hover:scale-105 transition-all">
-              {logoFailed ? (
-                <div className="w-full h-full rounded-xl bg-gradient-to-br from-[#9E1B32] to-[#7A1527] text-white flex flex-col items-center justify-center text-[10px] font-black tracking-tighter leading-tight shadow-sm">
-                  <span>ERSL</span>
-                  <span className="text-[7px] text-red-200 font-bold uppercase tracking-widest">UA</span>
-                </div>
-              ) : (
-                <img
-                  src={`${import.meta.env.BASE_URL}images/logo/logo.png`}
-                  onError={() => setLogoFailed(true)}
-                  alt="ERSL Lab Logo"
-                  className="w-full h-full object-contain drop-shadow-xs"
-                />
-              )}
+            {/* Medallion crest with animated aura glow */}
+            <div className="relative flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-tr from-[#9E1B32] via-red-600 to-amber-500 p-0.5 shadow-md shadow-red-950/15 group-hover:scale-105 group-hover:shadow-lg group-hover:ring-2 group-hover:ring-[#9E1B32]/30 transition-all shrink-0">
+              <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden p-0.5">
+                {logoFailed ? (
+                  <div className="w-full h-full rounded-full bg-gradient-to-br from-[#9E1B32] to-[#7A1527] text-white flex flex-col items-center justify-center text-xs font-black tracking-tighter leading-tight shadow-sm">
+                    <span>ERSL</span>
+                    <span className="text-[8px] text-red-200 font-bold uppercase tracking-widest">UA</span>
+                  </div>
+                ) : (
+                  <img
+                    src={logoCandidates[logoSrcIndex]}
+                    onError={handleLogoError}
+                    alt="Environmental Remote Sensing Laboratory (ERSL) Logo"
+                    className="w-full h-full object-cover rounded-full filter contrast-105"
+                    loading="eager"
+                  />
+                )}
+              </div>
             </div>
-            <div className="flex flex-col">
-              <span className={`font-extrabold text-xl md:text-2xl tracking-tight transition-colors group-hover:text-red-800 ${currentTab === 'home' ? 'text-[#9E1B32]' : 'text-[#9E1B32]/95'}`}>
+
+            {/* Typography lockup */}
+            <div className="flex flex-col justify-center">
+              <div className="flex items-center space-x-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-[#9E1B32]">
+                  The University of Alabama · ERSL
+                </span>
+              </div>
+              <h1 className={`font-black text-base sm:text-lg md:text-2xl tracking-tight transition-colors group-hover:text-[#9E1B32] ${currentTab === 'home' ? 'text-[#9E1B32]' : 'text-slate-900'}`}>
                 Environmental Remote Sensing Laboratory
-              </span>
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest hidden sm:inline-block">
-                The University of Alabama • ERSL
+              </h1>
+              <span className="text-[10px] md:text-[11px] font-medium text-slate-500 tracking-wide hidden sm:inline-block">
+                Department of Geography & the Environment · Earth Observation & GeoAI
               </span>
             </div>
           </button>

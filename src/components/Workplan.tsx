@@ -154,6 +154,9 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', due_date: '', owner_id: currentUser.id });
 
+  // Track alias IDs (e.g. user-naveen, uuid, person-purushothaman) mapping to canonical Profile ID
+  const [aliasMap, setAliasMap] = useState<Record<string, string>>({});
+
   const load = useCallback(async () => {
     // 1. Load local tasks backup if available
     const localTasks = localStorage.getItem('ersl_tasks');
@@ -161,35 +164,96 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
       try { setTasks(JSON.parse(localTasks)); } catch {}
     }
 
-    // 2. Build complete verified people list with official university emails
-    let mergedPeople: Profile[] = initialPeople.map(p => ({
-      id: p.id,
-      name: p.name,
-      email: p.email || (p.id === 'person-purushothaman' ? 'npurushothaman@ua.edu' : `${p.id}@ua.edu`),
-      role: p.id === 'person-liu' ? 'admin' : 'member'
-    }));
+    // Helper to normalize emails for strict deduplication
+    const norm = (str?: string) => (str || '').trim().toLowerCase();
 
+    // 2. Build verified canonical people list starting from initialPeople
+    const peopleByEmail = new Map<string, Profile>();
+    const aliases: Record<string, string> = {};
+
+    initialPeople.forEach(p => {
+      const email = norm(p.email || (p.id === 'person-purushothaman' ? 'npurushothaman@ua.edu' : `${p.id}@ua.edu`));
+      const profile: Profile = {
+        id: p.id,
+        name: p.name,
+        email: email,
+        role: p.id === 'person-liu' ? 'admin' : 'member'
+      };
+      if (email) {
+        peopleByEmail.set(email, profile);
+      }
+      aliases[p.id] = p.id;
+    });
+
+    // Merge helper that merges incoming profiles by email instead of creating duplicate cards
+    const mergeProfile = (incoming: { id?: string; name?: string; email?: string; role?: string }) => {
+      if (!incoming) return;
+      const email = norm(incoming.email);
+      const incomingId = incoming.id || '';
+
+      if (email && peopleByEmail.has(email)) {
+        // Person already exists with this email - merge into the canonical record!
+        const existing = peopleByEmail.get(email)!;
+        if (incomingId) {
+          aliases[incomingId] = existing.id;
+        }
+        // Promote role to admin if incoming is admin
+        if (incoming.role?.toLowerCase() === 'admin') {
+          existing.role = 'admin';
+        }
+        // Keep the cleaner/longer name if available
+        if (incoming.name && incoming.name.length > (existing.name?.length || 0) && !existing.name.startsWith('Dr.')) {
+          existing.name = incoming.name;
+        }
+      } else if (email) {
+        // New researcher with a distinct email
+        const newId = incomingId || `person-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+        const newProfile: Profile = {
+          id: newId,
+          name: incoming.name || email,
+          email: email,
+          role: incoming.role?.toLowerCase() === 'admin' ? 'admin' : 'member'
+        };
+        peopleByEmail.set(email, newProfile);
+        if (incomingId) {
+          aliases[incomingId] = newId;
+        }
+        aliases[newId] = newId;
+      } else if (incomingId && !aliases[incomingId]) {
+        // Profile without email
+        const newProfile: Profile = {
+          id: incomingId,
+          name: incoming.name || 'Lab Member',
+          email: '',
+          role: incoming.role?.toLowerCase() === 'admin' ? 'admin' : 'member'
+        };
+        aliases[incomingId] = incomingId;
+        peopleByEmail.set(incomingId, newProfile);
+      }
+    };
+
+    // Also link currentUser's ID and email to alias map
+    const curEmail = norm(currentUser.email);
+    if (curEmail && peopleByEmail.has(curEmail)) {
+      const canonical = peopleByEmail.get(curEmail)!;
+      aliases[currentUser.id] = canonical.id;
+    }
+
+    // Merge savedPeople from localStorage
     const savedPeople = localStorage.getItem('ersl_people');
     if (savedPeople) {
       try {
         const pList = JSON.parse(savedPeople);
-        if (Array.isArray(pList) && pList.length > 0) {
-          const known = new Set(mergedPeople.map(m => m.id));
-          for (const item of pList) {
-            if (!known.has(item.id)) {
-              mergedPeople.push({
-                id: item.id,
-                name: item.name,
-                email: item.email || '',
-                role: item.role?.toLowerCase() || 'member'
-              });
-            }
-          }
+        if (Array.isArray(pList)) {
+          pList.forEach(item => mergeProfile(item));
         }
       } catch {}
     }
 
-    setPeople(mergedPeople);
+    // Set merged state immediately
+    const deduplicatedList = Array.from(peopleByEmail.values());
+    setPeople(deduplicatedList);
+    setAliasMap({ ...aliases });
 
     if (!supabase) return;
     try {
@@ -203,22 +267,39 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         localStorage.setItem('ersl_tasks', JSON.stringify(t.data));
       }
       if (p.data && p.data.length > 0) {
-        const known = new Set(p.data.map((r: any) => r.id));
-        const combined = [...p.data as Profile[], ...mergedPeople.filter(m => !known.has(m.id))];
-        setPeople(combined);
+        (p.data as Profile[]).forEach(profile => mergeProfile(profile));
+        const finalMerged = Array.from(peopleByEmail.values());
+        setPeople(finalMerged);
+        setAliasMap({ ...aliases });
+        try {
+          localStorage.setItem('ersl_people', JSON.stringify(finalMerged));
+        } catch {}
       }
     } catch (err) {
       console.warn('Workplan load notice:', err);
     }
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => { load(); }, [load]);
 
-  const nameOf = (id: string) => people.find(p => p.id === id)?.name || people.find(p => p.id === id)?.email || 'Lab Member';
+  const nameOf = (id: string) => {
+    const canonicalId = aliasMap[id] || id;
+    const p = people.find(item => item.id === id || item.id === canonicalId);
+    return p?.name || p?.email || 'Lab Member';
+  };
 
   const memberStats = useMemo(() => {
     return people.map(p => {
-      const memberTasks = tasks.filter(t => t.owner_id === p.id);
+      const pEmail = (p.email || '').trim().toLowerCase();
+      const memberTasks = tasks.filter(t => {
+        if (t.owner_id === p.id) return true;
+        if (aliasMap[t.owner_id] === p.id) return true;
+        const ownerPerson = people.find(item => item.id === t.owner_id || aliasMap[t.owner_id] === item.id);
+        if (ownerPerson && ownerPerson.email && pEmail && ownerPerson.email.trim().toLowerCase() === pEmail) {
+          return true;
+        }
+        return false;
+      });
       const total = memberTasks.length;
       const completed = memberTasks.filter(t => t.status === 'completed').length;
       const inProgress = memberTasks.filter(t => t.status === 'in_progress').length;
@@ -240,7 +321,7 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         percent,
       };
     });
-  }, [people, tasks]);
+  }, [people, tasks, aliasMap]);
 
   const addTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -285,17 +366,15 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     }
 
     // Build standard, professional email content
-    const isNaveen = targetOwner === 'person-purushothaman' || recipientEmail.includes('npurushothaman') || recipientName.toLowerCase().includes('naveen');
-    const ccEmail = isNaveen ? 'naveenpurushothaman1098@gmail.com' : '';
     const mailSubject = `[ERSL Lab Workplan] New Research Milestone Assigned: ${form.title}`;
     const mailBody = `Hello ${recipientName},\n\nA new research milestone has been assigned to you by Dr. Hongxing Liu on the ERSL Lab Workplan:\n\n• Task: ${form.title}\n• Target Due Date: ${form.due_date || 'No fixed deadline'}\n• Deliverables & Scope: ${form.description || 'Milestone tracking item.'}\n\nPlease visit the ERSL Portal to review instructions and post progress updates:\nhttps://naveen1098.github.io/ERSL/\n\nBest regards,\nDr. Hongxing Liu\nEnvironmental Remote Sensing Laboratory (ERSL)\nDepartment of Geography and the Environment\nThe University of Alabama`;
-    const mailtoUrl = `mailto:${encodeURIComponent(recipientEmail)}?${ccEmail ? `cc=${encodeURIComponent(ccEmail)}&` : ''}subject=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(mailBody)}`;
+    const mailtoUrl = `mailto:${encodeURIComponent(recipientEmail)}?subject=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(mailBody)}`;
 
     // Set interactive 1-click Outlook/Gmail email prompt
     if (isAdmin && assignedMember) {
       setAssignedEmailPrompt({
         recipientName,
-        recipientEmail: ccEmail ? `${recipientEmail} (CC: ${ccEmail})` : recipientEmail,
+        recipientEmail: recipientEmail,
         taskTitle: form.title,
         dueDate: form.due_date || 'No fixed deadline',
         description: form.description,
@@ -313,7 +392,6 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             subject: mailSubject,
             from_name: 'ERSL Lab Workplan (Dr. Hongxing Liu)',
             to: recipientEmail,
-            cc: ccEmail || undefined,
             message: mailBody,
             recipient: recipientEmail,
             task: form.title,
@@ -445,24 +523,35 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
   // Role Scoping: Admin sees filtered selection (or all), members ONLY see their own tasks
   const visible = useMemo(() => {
     if (!isAdmin) {
+      const myEmail = (currentUser.email || '').trim().toLowerCase();
+      const myCanonicalId = aliasMap[currentUser.id] || currentUser.id;
       return tasks.filter(t => {
-        if (t.owner_id === currentUser.id) return true;
-        const isNaveen = currentUser.id === 'user-naveen' || 
-                         currentUser.id === 'user-npurushothaman' || 
-                         currentUser.email?.toLowerCase().includes('npurushothaman') ||
-                         currentUser.email?.toLowerCase().includes('naveen');
-        if (isNaveen && (t.owner_id === 'person-purushothaman' || t.owner_id === 'user-naveen' || t.owner_id === 'user-npurushothaman')) {
-          return true;
-        }
-        const ownerPerson = people.find(p => p.id === t.owner_id);
-        if (ownerPerson?.email && currentUser.email && ownerPerson.email.toLowerCase() === currentUser.email.toLowerCase()) {
+        if (t.owner_id === currentUser.id || t.owner_id === myCanonicalId) return true;
+        if (aliasMap[t.owner_id] === myCanonicalId) return true;
+        const ownerPerson = people.find(p => p.id === t.owner_id || aliasMap[t.owner_id] === p.id);
+        if (ownerPerson?.email && myEmail && ownerPerson.email.trim().toLowerCase() === myEmail) {
           return true;
         }
         return false;
       });
     }
-    return tasks.filter(t => filterOwner === 'all' || t.owner_id === filterOwner);
-  }, [tasks, isAdmin, filterOwner, currentUser.id, currentUser.email, people]);
+    if (filterOwner === 'all') return tasks;
+    const targetCanonicalId = aliasMap[filterOwner] || filterOwner;
+    const targetPerson = people.find(p => p.id === filterOwner || p.id === targetCanonicalId);
+    const targetEmail = targetPerson?.email?.trim().toLowerCase();
+
+    return tasks.filter(t => {
+      if (t.owner_id === filterOwner || t.owner_id === targetCanonicalId) return true;
+      if (aliasMap[t.owner_id] === targetCanonicalId) return true;
+      if (targetEmail) {
+        const ownerPerson = people.find(p => p.id === t.owner_id || aliasMap[t.owner_id] === p.id);
+        if (ownerPerson?.email && ownerPerson.email.trim().toLowerCase() === targetEmail) {
+          return true;
+        }
+      }
+      return false;
+    });
+  }, [tasks, isAdmin, filterOwner, currentUser.id, currentUser.email, people, aliasMap]);
 
   const alerts = useMemo(
     () => visible.filter(t => {

@@ -21,7 +21,8 @@ import {
   User, Role, ResearchTheme, Project, Publication, Software, 
   DataLayer, Instrument, Person, BoxFile, AuditLog 
 } from './types';
-import { newsItems } from './data/news';
+import { newsItems, NewsItem } from './data/news';
+import { NewsModal } from './components/NewsModal';
 import { LoginModal } from './components/LoginModal';
 import { UpdatePasswordModal } from './components/UpdatePasswordModal';
 import { Workplan } from './components/Workplan';
@@ -175,9 +176,52 @@ export default function App() {
 
   const [selectedProjectDetails, setSelectedProjectDetails] = useState<Project | null>(null);
 
+  // News & Lab Updates State (Publications, Achievements, Blogs, Field Surveys)
+  const [news, setNews] = useState<NewsItem[]>(() => {
+    const saved = localStorage.getItem('ersl_news');
+    if (!saved) return newsItems;
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : newsItems;
+    } catch {
+      return newsItems;
+    }
+  });
+  const [newsModalOpen, setNewsModalOpen] = useState(false);
+  const [editingNewsItem, setEditingNewsItem] = useState<NewsItem | null>(null);
+  const [newsCategoryFilter, setNewsCategoryFilter] = useState<string>('all');
 
+  useEffect(() => {
+    localStorage.setItem('ersl_news', JSON.stringify(news));
+  }, [news]);
 
-  // Bulletin folders: one folder per research idea
+  const handleSaveNewsItem = (savedItem: NewsItem) => {
+    setNews(prev => {
+      let updated: NewsItem[];
+      const idx = prev.findIndex(n => n.id === savedItem.id);
+      if (idx >= 0) {
+        updated = [...prev];
+        updated[idx] = savedItem;
+      } else {
+        updated = [savedItem, ...prev];
+      }
+      localStorage.setItem('ersl_news', JSON.stringify(updated));
+      return updated;
+    });
+    setNewsModalOpen(false);
+    setEditingNewsItem(null);
+    appendAuditLog('UPDATE_NEWS', `Saved news update: "${savedItem.title}"`);
+  };
+
+  const handleDeleteNewsItem = (id: string, title: string) => {
+    if (!confirm(`Are you sure you want to delete news announcement "${title}"?`)) return;
+    setNews(prev => {
+      const updated = prev.filter(n => n.id !== id);
+      localStorage.setItem('ersl_news', JSON.stringify(updated));
+      return updated;
+    });
+    appendAuditLog('DELETE_NEWS', `Deleted news announcement: "${title}"`);
+  };
   const [bulletinFolders, setBulletinFolders] = useState<string[]>(() => {
     const saved = localStorage.getItem('ersl_bulletin_folders');
     return saved ? JSON.parse(saved) : ['General'];
@@ -740,11 +784,11 @@ export default function App() {
       } else {
         setSyncScholarLogs(prev => [
           ...prev,
-          `ℹ️ No new papers automatically imported. You can add any publication manually by pasting its DOI or Google Scholar link using the "+ Add (DOI / Scholar)" button above!`
+          `ℹ️ No new papers automatically imported. You can add any publication manually by pasting its DOI or Google Scholar link using the "+ Add" button above!`
         ]);
       }
     } catch {
-      setSyncScholarLogs(prev => [...prev, '❌ Unable to complete publications synchronization. Please use "+ Add (DOI / Scholar)" to add papers by DOI or link.']);
+      setSyncScholarLogs(prev => [...prev, '❌ Unable to complete publications synchronization. Please use "+ Add" to add papers by DOI or link.']);
     } finally {
       setIsSyncingScholar(false);
       appendAuditLog('SCHOLAR_PROFILE_SYNC', 'Synchronized Dr. Hongxing Liu publications from academic index');
@@ -824,6 +868,28 @@ export default function App() {
                 alt={slides[currentSlide].title} 
                 className="w-full h-full object-cover opacity-60 transition-all duration-1000 transform scale-102"
               />
+              {/* Creative Floating Lab Insignia Badge */}
+              <div className="absolute top-6 right-6 hidden md:flex items-center space-x-3.5 bg-slate-950/70 backdrop-blur-md border border-white/20 p-2.5 pr-4 rounded-2xl shadow-2xl z-10 select-none animate-in fade-in duration-500">
+                <div className="w-13 h-13 rounded-full p-0.5 bg-gradient-to-tr from-[#9E1B32] via-red-500 to-amber-400 shadow-md flex items-center justify-center shrink-0">
+                  <img 
+                    src={`${import.meta.env.BASE_URL}images/logo/logo.jpg`} 
+                    alt="ERSL Lab Crest"
+                    className="w-full h-full object-cover rounded-full"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = 'images/logo/logo.jpg';
+                    }}
+                  />
+                </div>
+                <div className="text-left text-white leading-tight">
+                  <div className="flex items-center space-x-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-red-200">RESEARCH FACILITY</span>
+                  </div>
+                  <p className="text-xs font-black text-white mt-0.5">ERSL Hydrologic Observatory</p>
+                  <p className="text-[10px] text-slate-300 font-medium">The University of Alabama</p>
+                </div>
+              </div>
+
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/40 to-transparent flex flex-col justify-end p-6 md:p-12 select-none">
                 <div className="max-w-2xl text-left">
                   <h1 className="text-2xl md:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-none">
@@ -863,25 +929,146 @@ export default function App() {
               </div>
             </div>
 
-            {/* Public News */}
-            <section id="home-news" className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 text-left">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight">Latest News</h2>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-[#9E1B32]">Public</span>
+            {/* Public News & Lab Highlights */}
+            <section id="home-news" className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 text-left space-y-5">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-gray-100">
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xl">📢</span>
+                    <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight">Latest News & Lab Updates</h2>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-[#9E1B32] bg-red-50 border border-red-100 px-2 py-0.5 rounded-full">
+                      Public
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Recent journal publications, student achievements, grant awards, field campaigns, and research stories.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {(currentUser || isAdmin || editMode) && (
+                    <button
+                      onClick={() => {
+                        setEditingNewsItem(null);
+                        setNewsModalOpen(true);
+                      }}
+                      className="bg-[#9E1B32] hover:bg-red-800 text-white font-bold text-xs py-2 px-3.5 rounded-lg flex items-center space-x-1.5 shadow-sm transition-all cursor-pointer shrink-0"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Post News / Story</span>
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {newsItems.map((n) => (
-                  <article key={n.id} className="border border-gray-100 rounded-xl p-4 bg-slate-50 hover:shadow-md transition-shadow">
-                    <time className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                      {new Date(n.date + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                    </time>
-                    <h3 className="font-extrabold text-slate-800 text-sm mt-1.5 leading-snug">{n.title}</h3>
-                    <p className="text-xs text-gray-600 mt-2 leading-relaxed">{n.summary}</p>
-                    {n.link && (
-                      <a href={n.link} target="_blank" rel="noreferrer" className="text-xs font-bold text-[#9E1B32] mt-2 inline-block hover:underline">Read more →</a>
-                    )}
-                  </article>
+
+              {/* Category Filter Tabs */}
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                {[
+                  { id: 'all', label: 'All Updates', icon: '🌐' },
+                  { id: 'publication', label: 'Publications', icon: '🎓' },
+                  { id: 'achievement', label: 'Achievements', icon: '🏆' },
+                  { id: 'field', label: 'Field Surveys', icon: '🚁' },
+                  { id: 'blog', label: 'Blogs & Notes', icon: '✍️' },
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setNewsCategoryFilter(tab.id)}
+                    className={`px-3 py-1.5 rounded-full font-bold text-xs transition-all cursor-pointer flex items-center space-x-1 ${
+                      newsCategoryFilter === tab.id
+                        ? 'bg-[#9E1B32] text-white shadow-xs'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                    }`}
+                  >
+                    <span>{tab.icon}</span>
+                    <span>{tab.label}</span>
+                  </button>
                 ))}
+              </div>
+
+              {/* News Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {news
+                  .filter(n => newsCategoryFilter === 'all' || (n.category || 'general') === newsCategoryFilter)
+                  .map((n) => {
+                    const cat = n.category || 'general';
+                    const badgeStyles: Record<string, { label: string; icon: string; cls: string }> = {
+                      publication: { label: 'Publication', icon: '🎓', cls: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
+                      achievement: { label: 'Achievement', icon: '🏆', cls: 'bg-amber-50 text-amber-800 border-amber-200' },
+                      field: { label: 'Field Campaign', icon: '🚁', cls: 'bg-sky-50 text-sky-800 border-sky-200' },
+                      blog: { label: 'Lab Blog', icon: '✍️', cls: 'bg-purple-50 text-purple-800 border-purple-200' },
+                      general: { label: 'Announcement', icon: '📢', cls: 'bg-slate-100 text-slate-700 border-slate-200' },
+                    };
+                    const badge = badgeStyles[cat] || badgeStyles.general;
+
+                    return (
+                      <article key={n.id} className="border border-gray-100 rounded-xl p-4 bg-slate-50/70 hover:bg-white hover:shadow-md transition-all flex flex-col justify-between text-left group relative">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border flex items-center gap-1 ${badge.cls}`}>
+                              <span>{badge.icon}</span>
+                              <span>{badge.label}</span>
+                            </span>
+                            <time className="text-[10px] font-bold text-gray-400">
+                              {new Date(n.date + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                            </time>
+                          </div>
+
+                          <h3 className="font-extrabold text-slate-800 text-sm leading-snug group-hover:text-[#9E1B32] transition-colors">
+                            {n.title}
+                          </h3>
+                          <p className="text-xs text-gray-600 mt-2 leading-relaxed whitespace-pre-line">
+                            {n.summary}
+                          </p>
+                        </div>
+
+                        <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between">
+                          {n.link ? (
+                            n.link.startsWith('#') ? (
+                              <button
+                                onClick={() => setActiveTab(n.link!.replace('#', ''))}
+                                className="text-xs font-bold text-[#9E1B32] hover:underline cursor-pointer flex items-center gap-1"
+                              >
+                                <span>Explore tab →</span>
+                              </button>
+                            ) : (
+                              <a
+                                href={n.link}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs font-bold text-[#9E1B32] hover:underline flex items-center gap-1"
+                              >
+                                <span>Read more →</span>
+                              </a>
+                            )
+                          ) : (
+                            <span className="text-[10px] text-gray-400 italic">Lab update</span>
+                          )}
+
+                          {(currentUser || isAdmin || editMode) && (
+                            <div className="flex items-center space-x-1">
+                              <button
+                                onClick={() => {
+                                  setEditingNewsItem(n);
+                                  setNewsModalOpen(true);
+                                }}
+                                className="p-1 text-slate-500 hover:text-[#9E1B32] hover:bg-red-50 rounded cursor-pointer transition-colors"
+                                title="Edit this announcement"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteNewsItem(n.id, n.title)}
+                                className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded cursor-pointer transition-colors"
+                                title="Delete announcement"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
               </div>
             </section>
 
@@ -1191,10 +1378,10 @@ export default function App() {
                         setModalOpen(true);
                       }}
                       className="bg-[#9E1B32] hover:bg-red-800 text-white font-bold text-xs py-2 px-3 rounded flex items-center justify-center space-x-1 shadow-sm cursor-pointer shrink-0"
-                      title="Add publication by DOI, Google Scholar link, or manual input"
+                      title="Add publication"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>Add (DOI / Scholar)</span>
+                      <span>Add</span>
                     </button>
 
                     {publications.length > 0 && (
@@ -1231,7 +1418,7 @@ export default function App() {
                     <h4 className="text-sm font-bold text-gray-700">No publication records currently displayed.</h4>
                     <p className="text-xs text-gray-400 mt-1 max-w-md mx-auto">
                       {currentUser
-                        ? 'Click "Sync Publications from Google Scholar" below to retrieve Dr. Hongxing Liu\'s live papers, or add publications manually by DOI or Google Scholar link.'
+                        ? 'Click "+ Add" above to add research publications.'
                         : 'Publications will be displayed here once cataloged by the laboratory.'}
                     </p>
                   </div>
@@ -1245,7 +1432,7 @@ export default function App() {
                       className="bg-[#9E1B32] hover:bg-red-800 text-white font-bold text-xs py-2 px-4 rounded-lg inline-flex items-center space-x-1.5 shadow-sm cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>Add Publication by DOI / Google Scholar</span>
+                      <span>Add Publication</span>
                     </button>
                   )}
                 </div>
@@ -1313,64 +1500,7 @@ export default function App() {
               )}
             </div>
 
-            {/* Google Scholar automatic synchronization console (RESTRICTED TO LOGGED-IN MEMBERS ONLY) */}
-            {currentUser && (
-              <div className="bg-slate-100 border border-gray-200 rounded-xl p-5 text-left flex flex-col gap-4">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <h4 className="text-xs font-bold text-gray-800">Google Scholar Academic Integration Hub</h4>
-                      <span className="bg-emerald-100 text-emerald-800 text-[9px] font-extrabold px-2 py-0.5 rounded-full border border-emerald-200 uppercase tracking-wider">
-                        Member Tool
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-gray-500 mt-0.5">
-                      Sync directly from Dr. Hongxing Liu's verified Google Scholar profile (ID:{' '}
-                      <a
-                        href="https://scholar.google.com/citations?user=GN_fGecAAAAJ"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-mono bg-white px-1.5 py-0.5 rounded border border-gray-200 text-[#9E1B32] font-bold hover:underline"
-                      >
-                        GN_fGecAAAAJ ↗
-                      </a>
-                      ).
-                    </p>
-                  </div>
-                  <button 
-                    onClick={handleScholarSync}
-                    disabled={isSyncingScholar}
-                    className={`text-white text-xs font-bold py-1.5 px-4 rounded transition-colors flex items-center space-x-1.5 cursor-pointer ${
-                      isSyncingScholar ? 'bg-amber-600' : 'bg-[#222222] hover:bg-[#9E1B32]'
-                    }`}
-                  >
-                    <span>🔄</span>
-                    <span>{isSyncingScholar ? 'Syncing Profile...' : 'Sync Publications from Google Scholar'}</span>
-                  </button>
-                </div>
 
-                {/* Scholar Sync Live Terminal Simulation */}
-                {(isSyncingScholar || syncScholarLogs.length > 0) && (
-                  <div className="bg-slate-950 p-4 rounded-lg font-mono text-[10px] text-emerald-400 space-y-1 mt-2 shadow-inner border border-slate-800">
-                    <div className="flex justify-between items-center text-slate-500 border-b border-slate-800 pb-1.5 mb-2 font-bold uppercase tracking-widest text-[9px]">
-                      <span>google scholar crawl diagnostics</span>
-                      <span className="text-emerald-500 animate-pulse">● LIVE CHANNEL</span>
-                    </div>
-                    {syncScholarLogs.map((log, lidx) => (
-                      <p key={lidx} className="leading-relaxed">
-                        <span className="text-slate-500">[{new Date().toLocaleTimeString()}]</span> {log}
-                      </p>
-                    ))}
-                    {isSyncingScholar && (
-                      <div className="flex items-center space-x-1 mt-1 text-slate-400 font-bold">
-                        <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-ping"></span>
-                        <span>Crawling publication metrics from Google Scholar API...</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
 
           </div>
         )}
@@ -2587,6 +2717,18 @@ export default function App() {
           onClose={() => {
             setModalOpen(false);
             setEditingItem(null);
+          }}
+        />
+      )}
+
+      {/* News & Announcements Modal */}
+      {newsModalOpen && (
+        <NewsModal
+          item={editingNewsItem}
+          onSave={handleSaveNewsItem}
+          onClose={() => {
+            setNewsModalOpen(false);
+            setEditingNewsItem(null);
           }}
         />
       )}
