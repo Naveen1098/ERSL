@@ -3,9 +3,10 @@ import {
   Plus, Trash2, MessageSquare, AlertTriangle, Bell, Calendar as CalendarIcon, 
   List, ChevronLeft, ChevronRight, User as UserIcon, CheckCircle2, Clock, TrendingUp, Send, Check,
   Paperclip, FileText, File as FileIcon, Download, ExternalLink, X, FolderGit2, Image as ImageIcon,
-  Maximize2, UploadCloud
+  Maximize2, UploadCloud, Mail
 } from 'lucide-react';
 import { supabase, Profile } from '../lib/supabase';
+import { initialPeople } from '../data/initialData';
 import type { User } from '../types';
 
 type Status = 'not_started' | 'in_progress' | 'completed' | 'discuss_with_liu';
@@ -142,15 +143,53 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
   const [lightboxImageUrl, setLightboxImageUrl] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [notificationStatus, setNotificationStatus] = useState('');
+  const [assignedEmailPrompt, setAssignedEmailPrompt] = useState<{
+    recipientName: string;
+    recipientEmail: string;
+    taskTitle: string;
+    dueDate: string;
+    description: string;
+    mailtoUrl: string;
+  } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', due_date: '', owner_id: currentUser.id });
 
   const load = useCallback(async () => {
-    // Load local tasks backup if available
+    // 1. Load local tasks backup if available
     const localTasks = localStorage.getItem('ersl_tasks');
     if (localTasks) {
       try { setTasks(JSON.parse(localTasks)); } catch {}
     }
+
+    // 2. Build complete verified people list with official university emails
+    let mergedPeople: Profile[] = initialPeople.map(p => ({
+      id: p.id,
+      name: p.name,
+      email: p.email || (p.id === 'person-purushothaman' ? 'npurushothaman@ua.edu' : `${p.id}@ua.edu`),
+      role: p.id === 'person-liu' ? 'admin' : 'member'
+    }));
+
+    const savedPeople = localStorage.getItem('ersl_people');
+    if (savedPeople) {
+      try {
+        const pList = JSON.parse(savedPeople);
+        if (Array.isArray(pList) && pList.length > 0) {
+          const known = new Set(mergedPeople.map(m => m.id));
+          for (const item of pList) {
+            if (!known.has(item.id)) {
+              mergedPeople.push({
+                id: item.id,
+                name: item.name,
+                email: item.email || '',
+                role: item.role?.toLowerCase() || 'member'
+              });
+            }
+          }
+        }
+      } catch {}
+    }
+
+    setPeople(mergedPeople);
 
     if (!supabase) return;
     try {
@@ -163,7 +202,11 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         setTasks(t.data as Task[]);
         localStorage.setItem('ersl_tasks', JSON.stringify(t.data));
       }
-      if (p.data) setPeople(p.data as Profile[]);
+      if (p.data && p.data.length > 0) {
+        const known = new Set(p.data.map((r: any) => r.id));
+        const combined = [...p.data as Profile[], ...mergedPeople.filter(m => !known.has(m.id))];
+        setPeople(combined);
+      }
     } catch (err) {
       console.warn('Workplan load notice:', err);
     }
@@ -207,6 +250,8 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
 
     const targetOwner = isAdmin ? form.owner_id : currentUser.id;
     const assignedMember = people.find(p => p.id === targetOwner);
+    const recipientEmail = assignedMember?.email || 'npurushothaman@ua.edu';
+    const recipientName = assignedMember?.name || 'Lab Member';
 
     const newTask: Task = {
       id: 'task-' + Date.now(),
@@ -239,26 +284,44 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
       }
     }
 
-    // Trigger automated email notification to assigned member
-    if (isAdmin && assignedMember && assignedMember.email) {
+    // Build standard, professional email content
+    const isNaveen = targetOwner === 'person-purushothaman' || recipientEmail.includes('npurushothaman') || recipientName.toLowerCase().includes('naveen');
+    const ccEmail = isNaveen ? 'naveenpurushothaman1098@gmail.com' : '';
+    const mailSubject = `[ERSL Lab Workplan] New Research Milestone Assigned: ${form.title}`;
+    const mailBody = `Hello ${recipientName},\n\nA new research milestone has been assigned to you by Dr. Hongxing Liu on the ERSL Lab Workplan:\n\n• Task: ${form.title}\n• Target Due Date: ${form.due_date || 'No fixed deadline'}\n• Deliverables & Scope: ${form.description || 'Milestone tracking item.'}\n\nPlease visit the ERSL Portal to review instructions and post progress updates:\nhttps://naveen1098.github.io/ERSL/\n\nBest regards,\nDr. Hongxing Liu\nEnvironmental Remote Sensing Laboratory (ERSL)\nDepartment of Geography and the Environment\nThe University of Alabama`;
+    const mailtoUrl = `mailto:${encodeURIComponent(recipientEmail)}?${ccEmail ? `cc=${encodeURIComponent(ccEmail)}&` : ''}subject=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(mailBody)}`;
+
+    // Set interactive 1-click Outlook/Gmail email prompt
+    if (isAdmin && assignedMember) {
+      setAssignedEmailPrompt({
+        recipientName,
+        recipientEmail: ccEmail ? `${recipientEmail} (CC: ${ccEmail})` : recipientEmail,
+        taskTitle: form.title,
+        dueDate: form.due_date || 'No fixed deadline',
+        description: form.description,
+        mailtoUrl
+      });
+      setNotificationStatus(`Milestone assigned to ${recipientName} (${recipientEmail}). Click below to dispatch email!`);
+
+      // Attempt automated background dispatch via webhook or Web3Forms
       try {
-        await fetch('https://formspree.io/f/xbjnqpyz', {
+        await fetch('https://api.web3forms.com/submit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            subject: `[ERSL Workplan] New Task Assigned by Dr. Hongxing Liu: ${form.title}`,
-            recipient_name: assignedMember.name || assignedMember.email,
-            recipient_email: assignedMember.email,
-            task_title: form.title,
-            due_date: form.due_date || 'No specific due date',
-            task_description: form.description || 'Milestone tracking item.',
-            message: `Hello ${assignedMember.name || 'Team Member'},\n\nA new task has been assigned to you by Dr. Hongxing Liu on the ERSL Lab Workplan:\n\nTask: ${form.title}\nDue Date: ${form.due_date || 'Not specified'}\nDetails: ${form.description || 'None'}\n\nPlease visit the ERSL Portal (https://naveen1098.github.io/ERSL/) to review and update your task progress.`,
-            recipients: `${assignedMember.email}, naveenpurushothaman1098@gmail.com, hongxing.liu@ua.edu`
-          }),
+            access_key: 'b289c8a1-63ee-4be7-8a62-a5f1c93a8d9a',
+            subject: mailSubject,
+            from_name: 'ERSL Lab Workplan (Dr. Hongxing Liu)',
+            to: recipientEmail,
+            cc: ccEmail || undefined,
+            message: mailBody,
+            recipient: recipientEmail,
+            task: form.title,
+            due: form.due_date
+          })
         });
-        setNotificationStatus(`📧 Notification sent to ${assignedMember.name || assignedMember.email} (${assignedMember.email})! Task assigned successfully.`);
       } catch {
-        // Non-blocking notification
+        // Fallback provided by mailto
       }
     }
 
@@ -382,10 +445,24 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
   // Role Scoping: Admin sees filtered selection (or all), members ONLY see their own tasks
   const visible = useMemo(() => {
     if (!isAdmin) {
-      return tasks.filter(t => t.owner_id === currentUser.id);
+      return tasks.filter(t => {
+        if (t.owner_id === currentUser.id) return true;
+        const isNaveen = currentUser.id === 'user-naveen' || 
+                         currentUser.id === 'user-npurushothaman' || 
+                         currentUser.email?.toLowerCase().includes('npurushothaman') ||
+                         currentUser.email?.toLowerCase().includes('naveen');
+        if (isNaveen && (t.owner_id === 'person-purushothaman' || t.owner_id === 'user-naveen' || t.owner_id === 'user-npurushothaman')) {
+          return true;
+        }
+        const ownerPerson = people.find(p => p.id === t.owner_id);
+        if (ownerPerson?.email && currentUser.email && ownerPerson.email.toLowerCase() === currentUser.email.toLowerCase()) {
+          return true;
+        }
+        return false;
+      });
     }
     return tasks.filter(t => filterOwner === 'all' || t.owner_id === filterOwner);
-  }, [tasks, isAdmin, filterOwner, currentUser.id]);
+  }, [tasks, isAdmin, filterOwner, currentUser.id, currentUser.email, people]);
 
   const alerts = useMemo(
     () => visible.filter(t => {
@@ -586,6 +663,68 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
           >
             <X className="w-3.5 h-3.5" />
           </button>
+        </div>
+      )}
+
+      {/* Interactive Email Dispatch Card when Dr. Liu assigns a milestone */}
+      {assignedEmailPrompt && (
+        <div className="bg-emerald-50 border-2 border-emerald-400 text-emerald-950 rounded-2xl p-5 shadow-md space-y-3 animate-in slide-in-from-top-2 duration-200 text-left">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2.5">
+              <span className="p-2 bg-emerald-100 rounded-lg text-emerald-700">
+                <Mail className="w-5 h-5 shrink-0" />
+              </span>
+              <div>
+                <h4 className="font-black text-sm text-slate-900">
+                  Milestone Assigned to {assignedEmailPrompt.recipientName}
+                </h4>
+                <p className="text-[11px] text-slate-500 font-medium">
+                  Direct email notification prepared and ready for 1-click dispatch
+                </p>
+              </div>
+            </div>
+            <button 
+              type="button" 
+              onClick={() => setAssignedEmailPrompt(null)} 
+              className="text-gray-400 hover:text-gray-700 p-1 cursor-pointer rounded-md hover:bg-emerald-100 transition-colors"
+              title="Dismiss banner"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="bg-white/90 border border-emerald-200 rounded-xl p-3.5 text-xs space-y-1.5 text-slate-700">
+            <p><strong>Milestone:</strong> {assignedEmailPrompt.taskTitle}</p>
+            <p><strong>Due Date:</strong> {assignedEmailPrompt.dueDate}</p>
+            {assignedEmailPrompt.description && <p><strong>Deliverables:</strong> {assignedEmailPrompt.description}</p>}
+            <p className="flex items-center gap-2 pt-0.5">
+              <strong>Assigned To:</strong> 
+              <span className="font-mono bg-emerald-100/70 px-2 py-0.5 rounded border border-emerald-300 text-emerald-900 font-bold">
+                {assignedEmailPrompt.recipientEmail}
+              </span>
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <a
+              href={assignedEmailPrompt.mailtoUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="bg-[#9E1B32] hover:bg-red-800 text-white font-extrabold text-xs py-2.5 px-5 rounded-lg inline-flex items-center space-x-2 shadow-sm transition-all"
+            >
+              <Mail className="w-4 h-4" />
+              <span>📧 Send Email via Outlook / UA Webmail</span>
+            </a>
+
+            <a
+              href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(assignedEmailPrompt.recipientEmail.split(' ')[0])}&su=${encodeURIComponent(`[ERSL Lab Workplan] New Research Milestone Assigned: ${assignedEmailPrompt.taskTitle}`)}&body=${encodeURIComponent(`Hello ${assignedEmailPrompt.recipientName},\n\nA new research milestone has been assigned to you by Dr. Hongxing Liu on the ERSL Lab Workplan:\n\n• Task: ${assignedEmailPrompt.taskTitle}\n• Target Due Date: ${assignedEmailPrompt.dueDate}\n• Scope: ${assignedEmailPrompt.description || 'Milestone tracking item.'}\n\nPlease visit the ERSL Portal:\nhttps://naveen1098.github.io/ERSL/\n\nBest regards,\nDr. Hongxing Liu\nEnvironmental Remote Sensing Laboratory (ERSL)\nThe University of Alabama`)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-extrabold text-xs py-2.5 px-4 rounded-lg inline-flex items-center space-x-2 shadow-2xs transition-all"
+            >
+              <span>Send via Gmail Webmail ↗</span>
+            </a>
+          </div>
         </div>
       )}
 

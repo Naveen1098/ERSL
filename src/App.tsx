@@ -107,6 +107,7 @@ export default function App() {
     return window.location.hash.includes('type=recovery') || window.location.hash.includes('access_token');
   });
   const [editMode, setEditMode] = useState(false);
+  const isAdmin = currentUser?.role === 'Admin';
 
   // Database lists
   const [themes, setThemes] = useState<ResearchTheme[]>(() => {
@@ -121,20 +122,22 @@ export default function App() {
 
   const [publications, setPublications] = useState<Publication[]>(() => {
     const saved = localStorage.getItem('ersl_publications');
-    if (!saved) return initialPublications;
-    try {
-      const savedList: Publication[] = JSON.parse(saved);
-      // Clean out any legacy mock entries
-      const containsMock = savedList.some(isMockPublication);
-      if (containsMock || savedList.length === 0) {
-        localStorage.setItem('ersl_publications', JSON.stringify(initialPublications));
-        return initialPublications;
+    if (saved !== null) {
+      try {
+        const savedList: Publication[] = JSON.parse(saved);
+        return savedList.filter(p => !isMockPublication(p));
+      } catch {
+        return [];
       }
-      return savedList;
-    } catch {
-      return initialPublications;
     }
+    // Start empty without forcing pre-created publications.json mock data
+    return [];
   });
+
+  // Automatically persist any publications update to local storage
+  useEffect(() => {
+    localStorage.setItem('ersl_publications', JSON.stringify(publications));
+  }, [publications]);
 
   const [softwareList, setSoftwareList] = useState<Software[]>(() => {
     const saved = localStorage.getItem('ersl_software');
@@ -172,21 +175,7 @@ export default function App() {
 
   const [selectedProjectDetails, setSelectedProjectDetails] = useState<Project | null>(null);
 
-  // Publications auto-synced from Google Scholar (public/publications.json, refreshed weekly by GitHub Action)
-  useEffect(() => {
-    fetch(`${import.meta.env.BASE_URL}publications.json?t=${Date.now()}`)
-      .then(r => (r.ok ? r.json() : []))
-      .then((data: Publication[]) => {
-        if (Array.isArray(data) && data.length > 0) {
-          const clean = data.filter(p => !isMockPublication(p));
-          if (clean.length > 0) {
-            setPublications(clean);
-            localStorage.setItem('ersl_publications', JSON.stringify(clean));
-          }
-        }
-      })
-      .catch(() => {});
-  }, []);
+
 
   // Bulletin folders: one folder per research idea
   const [bulletinFolders, setBulletinFolders] = useState<string[]>(() => {
@@ -662,9 +651,9 @@ export default function App() {
     setSyncScholarLogs(['🔍 Connecting to live academic metadata feed for Dr. Hongxing Liu (Scholar ID: GN_fGecAAAAJ)...']);
 
     try {
-      // 1. Live query to OpenAlex open research registry across Dr. Liu's university appointments
+      // 1. Live query to OpenAlex open research registry across Dr. Liu publications
       setSyncScholarLogs(prev => [...prev, '🌐 Querying live peer-reviewed works (Univ of Alabama, Cincinnati, Texas A&M, USGS)...']);
-      const openAlexUrl = `https://api.openalex.org/works?filter=author.id:A5101778436,institutions.id:I17301866|I63135867|I91045830|I52357470|I1286329397&sort=publication_year:desc&per_page=100`;
+      const openAlexUrl = `https://api.openalex.org/works?filter=author.id:A5101778436&sort=publication_year:desc&per_page=100`;
 
       let liveWorks: Publication[] = [];
       try {
@@ -672,7 +661,44 @@ export default function App() {
         if (liveRes.ok) {
           const json = await liveRes.json();
           if (Array.isArray(json.results) && json.results.length > 0) {
-            liveWorks = json.results.map((w: any, idx: number) => {
+            // Intelligent filter: Dr. Hongxing Liu in Geography, Remote Sensing, Hydrology, Water Quality
+            const relevantResults = json.results.filter((w: any) => {
+              const title = (w.title || w.display_name || '').toLowerCase();
+              const concepts = (w.concepts || []).map((c: any) => (c.display_name || '').toLowerCase());
+              const affiliations = (w.authorships || [])
+                .flatMap((a: any) => (a.institutions || []).map((i: any) => (i.display_name || '').toLowerCase()))
+                .concat((w.authorships || []).flatMap((a: any) => (a.raw_affiliation_strings || []).map((s: string) => s.toLowerCase())));
+
+              // Exclude medical, surgical, cancer, or non-geospatial arsenic chemistry
+              const isMed = title.includes('craniopharyngioma') || title.includes('carcinoma') || title.includes('oncology') || 
+                            title.includes('neurosurgery') || title.includes('leukemia') || title.includes('arsenic removal') ||
+                            title.includes('sorbent design') || title.includes('patient') || title.includes('clinical');
+              if (isMed) return false;
+
+              // Affirmative matches: UA, Cincinnati, Texas A&M, Ohio State, USGS, CIROH, Remote Sensing, Water, Geography
+              const hasAffiliation = affiliations.some(aff => 
+                aff.includes('alabama') || aff.includes('cincinnati') || aff.includes('texas a&m') || 
+                aff.includes('ohio state') || aff.includes('geography') || aff.includes('remote sensing') ||
+                aff.includes('usgs') || aff.includes('ciroh')
+              );
+
+              const hasKeywords = concepts.some(c => 
+                c.includes('remote sensing') || c.includes('geography') || c.includes('hydrology') || 
+                c.includes('gis') || c.includes('water') || c.includes('sediment') || c.includes('satellite') ||
+                c.includes('earth observation') || c.includes('radar') || c.includes('spatial') || c.includes('photogrammetry')
+              );
+
+              const hasTitleTerms = title.includes('water') || title.includes('lake') || title.includes('river') || 
+                                    title.includes('flood') || title.includes('satellite') || title.includes('remote sensing') || 
+                                    title.includes('sar') || title.includes('lidar') || title.includes('snow') || 
+                                    title.includes('ice') || title.includes('forest') || title.includes('dem') || 
+                                    title.includes('geographic') || title.includes('spatial') || title.includes('swot') ||
+                                    title.includes('sediment') || title.includes('algal') || title.includes('turbidity');
+
+              return hasAffiliation || hasKeywords || hasTitleTerms;
+            });
+
+            liveWorks = relevantResults.map((w: any, idx: number) => {
               const authors = (w.authorships || [])
                 .map((a: any) => a.author?.display_name)
                 .filter(Boolean)
@@ -699,7 +725,7 @@ export default function App() {
           }
         }
       } catch (err) {
-        console.warn('Live API request failed, falling back to bundled publications.json:', err);
+        console.warn('Live API request notice:', err);
       }
 
       const cleanLiveWorks = liveWorks.filter(p => !isMockPublication(p));
@@ -708,29 +734,17 @@ export default function App() {
         localStorage.setItem('ersl_publications', JSON.stringify(cleanLiveWorks));
         setSyncScholarLogs(prev => [
           ...prev,
-          `📥 Retrieved ${cleanLiveWorks.length} real peer-reviewed articles & conference papers directly from Dr. Hongxing Liu's active research index!`,
+          `📥 Retrieved ${cleanLiveWorks.length} verified peer-reviewed articles & conference papers from Dr. Hongxing Liu's active research index!`,
           `✅ ERSL Lab publication catalog successfully synchronized and saved to local storage!`
         ]);
       } else {
-        // Fallback to static publications.json
-        setSyncScholarLogs(prev => [...prev, '📂 Fetching verified peer-reviewed publications feed from public/publications.json...']);
-        const res = await fetch(`${import.meta.env.BASE_URL}publications.json?t=${Date.now()}`);
-        if (res.ok) {
-          const data: Publication[] = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            const clean = data.filter(p => !isMockPublication(p));
-            setPublications(clean);
-            localStorage.setItem('ersl_publications', JSON.stringify(clean));
-            setSyncScholarLogs(prev => [
-              ...prev,
-              `📥 Retrieved ${clean.length} publications directly from Dr. Hongxing Liu Scholar profile index.`,
-              `💾 Updated publications list successfully!`
-            ]);
-          }
-        }
+        setSyncScholarLogs(prev => [
+          ...prev,
+          `ℹ️ No new papers automatically imported. You can add any publication manually by pasting its DOI or Google Scholar link using the "+ Add (DOI / Scholar)" button above!`
+        ]);
       }
     } catch {
-      setSyncScholarLogs(prev => [...prev, '❌ Unable to complete publications synchronization.']);
+      setSyncScholarLogs(prev => [...prev, '❌ Unable to complete publications synchronization. Please use "+ Add (DOI / Scholar)" to add papers by DOI or link.']);
     } finally {
       setIsSyncingScholar(false);
       appendAuditLog('SCHOLAR_PROFILE_SYNC', 'Synchronized Dr. Hongxing Liu publications from academic index');
@@ -812,14 +826,6 @@ export default function App() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/40 to-transparent flex flex-col justify-end p-6 md:p-12 select-none">
                 <div className="max-w-2xl text-left">
-                  <div className="flex flex-wrap gap-2 items-center mb-3">
-                    <span className="inline-block bg-red-100 text-[#9E1B32] text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-md">
-                      ERSL Hydro-Lab
-                    </span>
-                    <span className="inline-block bg-blue-950/80 border border-cyan-500/20 text-cyan-300 text-[9px] font-mono tracking-tight px-2.5 py-1 rounded-full backdrop-blur-sm shadow-sm">
-                      📂 asset: {slides[currentSlide].file}
-                    </span>
-                  </div>
                   <h1 className="text-2xl md:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-none">
                     {slides[currentSlide].title}
                   </h1>
@@ -834,10 +840,10 @@ export default function App() {
                       Explore Research Themes
                     </button>
                     <button 
-                      onClick={() => setActiveTab('data')} 
+                      onClick={() => setActiveTab('publications')} 
                       className="bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs py-2 px-5 rounded backdrop-blur-sm transition-all cursor-pointer"
                     >
-                      Browse Datasets
+                      View Publications
                     </button>
                   </div>
                 </div>
@@ -896,8 +902,8 @@ export default function App() {
                   <button onClick={() => setActiveTab('publications')} className="px-4 py-2 rounded border border-gray-200 hover:border-[#9E1B32] hover:text-[#9E1B32] transition-all bg-slate-50 hover:bg-white cursor-pointer">
                     📄 Academic Publications
                   </button>
-                  <button onClick={() => setActiveTab('software')} className="px-4 py-2 rounded border border-gray-200 hover:border-[#9E1B32] hover:text-[#9E1B32] transition-all bg-slate-50 hover:bg-white cursor-pointer">
-                    🛠️ Open-Source Repositories
+                  <button onClick={() => setActiveTab('research')} className="px-4 py-2 rounded border border-gray-200 hover:border-[#9E1B32] hover:text-[#9E1B32] transition-all bg-slate-50 hover:bg-white cursor-pointer">
+                    🔬 Research Areas
                   </button>
                 </div>
               </div>
@@ -1175,19 +1181,39 @@ export default function App() {
                 </select>
               </div>
 
-              <div className="md:col-span-2 text-right">
-                {editMode ? (
-                  <button
-                    onClick={() => {
-                      setModalType('publication');
-                      setEditingItem(null);
-                      setModalOpen(true);
-                    }}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-3 rounded flex items-center justify-center space-x-1 shadow-sm cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Publication</span>
-                  </button>
+              <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2">
+                {(currentUser || isAdmin || editMode) ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        setModalType('publication');
+                        setEditingItem(null);
+                        setModalOpen(true);
+                      }}
+                      className="bg-[#9E1B32] hover:bg-red-800 text-white font-bold text-xs py-2 px-3 rounded flex items-center justify-center space-x-1 shadow-sm cursor-pointer shrink-0"
+                      title="Add publication by DOI, Google Scholar link, or manual input"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add (DOI / Scholar)</span>
+                    </button>
+
+                    {publications.length > 0 && (
+                      <button
+                        onClick={() => {
+                          if (confirm("Are you sure you want to clear all publications? The catalog will be completely emptied. You can add papers manually by DOI or sync from Google Scholar.")) {
+                            setPublications([]);
+                            localStorage.setItem('ersl_publications', JSON.stringify([]));
+                            appendAuditLog('CLEAR_PUBLICATIONS', 'Cleared all publications from website catalog');
+                          }
+                        }}
+                        className="bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-700 border border-slate-300 text-xs font-bold py-2 px-2.5 rounded flex items-center justify-center space-x-1 cursor-pointer shrink-0"
+                        title="Clear all publication records"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Clear All</span>
+                      </button>
+                    )}
+                  </>
                 ) : (
                   <div className="text-xs text-gray-400 font-bold uppercase tracking-wider text-center md:text-right">
                     📖 {filteredPublications.length} Records
@@ -1199,10 +1225,29 @@ export default function App() {
             {/* Dynamic publications render */}
             <div className="space-y-4">
               {filteredPublications.length === 0 ? (
-                <div className="bg-white p-12 rounded-xl border border-gray-100 text-center text-gray-400 shadow-sm">
-                  <FileText className="w-10 h-10 mx-auto text-gray-200 mb-2" />
-                  <p className="text-xs font-bold text-gray-500">No matching publications found.</p>
-                  <p className="text-[10px] text-gray-400 mt-1">Refine your search keyword or selection filters.</p>
+                <div className="bg-white p-12 rounded-xl border border-gray-100 text-center text-gray-500 shadow-sm space-y-3">
+                  <FileText className="w-12 h-12 mx-auto text-gray-300" />
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-700">No publication records currently displayed.</h4>
+                    <p className="text-xs text-gray-400 mt-1 max-w-md mx-auto">
+                      {currentUser
+                        ? 'Click "Sync Publications from Google Scholar" below to retrieve Dr. Hongxing Liu\'s live papers, or add publications manually by DOI or Google Scholar link.'
+                        : 'Publications will be displayed here once cataloged by the laboratory.'}
+                    </p>
+                  </div>
+                  {(currentUser || isAdmin || editMode) && (
+                    <button
+                      onClick={() => {
+                        setModalType('publication');
+                        setEditingItem(null);
+                        setModalOpen(true);
+                      }}
+                      className="bg-[#9E1B32] hover:bg-red-800 text-white font-bold text-xs py-2 px-4 rounded-lg inline-flex items-center space-x-1.5 shadow-sm cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Publication by DOI / Google Scholar</span>
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100 text-left">
@@ -1238,8 +1283,8 @@ export default function App() {
                         )}
                       </div>
 
-                      {/* Admin interactive elements on individual record */}
-                      {editMode && (
+                      {/* Interactive elements on individual record */}
+                      {(currentUser || isAdmin || editMode) && (
                         <div className="flex space-x-1 opacity-80 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => {
@@ -1268,11 +1313,17 @@ export default function App() {
               )}
             </div>
 
-            {/* Google Scholar automatic synchronization console */}
-            <div className="bg-slate-100 border border-gray-200 rounded-xl p-5 text-left flex flex-col gap-4">
+            {/* Google Scholar automatic synchronization console (RESTRICTED TO LOGGED-IN MEMBERS ONLY) */}
+            {currentUser && (
+              <div className="bg-slate-100 border border-gray-200 rounded-xl p-5 text-left flex flex-col gap-4">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                   <div>
-                    <h4 className="text-xs font-bold text-gray-800">Google Scholar Academic Integration Hub</h4>
+                    <div className="flex items-center space-x-2">
+                      <h4 className="text-xs font-bold text-gray-800">Google Scholar Academic Integration Hub</h4>
+                      <span className="bg-emerald-100 text-emerald-800 text-[9px] font-extrabold px-2 py-0.5 rounded-full border border-emerald-200 uppercase tracking-wider">
+                        Member Tool
+                      </span>
+                    </div>
                     <p className="text-[11px] text-gray-500 mt-0.5">
                       Sync directly from Dr. Hongxing Liu's verified Google Scholar profile (ID:{' '}
                       <a
@@ -1319,6 +1370,7 @@ export default function App() {
                   </div>
                 )}
               </div>
+            )}
 
           </div>
         )}

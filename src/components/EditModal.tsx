@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Edit, Plus, Info } from 'lucide-react';
+import { X, Save, Edit, Plus, Info, Sparkles, Search, Loader2, Check } from 'lucide-react';
 import { Publication, DataLayer, ResearchTheme, Instrument, Person } from '../types';
 
 interface EditModalProps {
@@ -16,6 +16,141 @@ export const EditModal: React.FC<EditModalProps> = ({
   onClose,
 }) => {
   const [formData, setFormData] = useState<any>({});
+  const [doiQuery, setDoiQuery] = useState('');
+  const [isFetchingDoi, setIsFetchingDoi] = useState(false);
+  const [doiFetchMsg, setDoiFetchMsg] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+
+  const extractDoi = (input: string): string | null => {
+    const match = input.match(/10\.\d{4,9}\/[-._;()/:A-Za-z0-9]+/);
+    return match ? match[0] : null;
+  };
+
+  const handleAutoFetchDoi = async () => {
+    if (!doiQuery.trim()) return;
+    setIsFetchingDoi(true);
+    setDoiFetchMsg({ type: 'info', text: '🔍 Querying global CrossRef and OpenAlex academic registries...' });
+
+    const cleanDoi = extractDoi(doiQuery);
+
+    try {
+      if (cleanDoi) {
+        // Query CrossRef
+        const res = await fetch(`https://api.crossref.org/works/${encodeURIComponent(cleanDoi)}`);
+        if (res.ok) {
+          const json = await res.json();
+          const itemData = json.message;
+          if (itemData) {
+            const authorsList = (itemData.author || [])
+              .map((a: any) => `${a.family || ''}${a.given ? ', ' + a.given : ''}`)
+              .filter(Boolean)
+              .join('; ') || 'Liu, H. et al.';
+            const venue = itemData['container-title']?.[0] || itemData.publisher || 'Journal';
+            const year = itemData.published?.['date-parts']?.[0]?.[0] || itemData['published-print']?.['date-parts']?.[0]?.[0] || new Date().getFullYear();
+            const title = (itemData.title?.[0] || '').replace(/<[^>]*>/g, '');
+            const link = itemData.URL || `https://doi.org/${cleanDoi}`;
+            const isConf = itemData.type === 'proceedings-article';
+
+            setFormData((prev: any) => ({
+              ...prev,
+              title: title || prev.title,
+              authors: authorsList || prev.authors,
+              venue: venue || prev.venue,
+              year: Number(year) || prev.year,
+              link: link || prev.link,
+              type: isConf ? 'Conference' : 'Peer-Reviewed Article',
+              abstract: itemData.abstract ? itemData.abstract.replace(/<[^>]*>/g, '') : prev.abstract
+            }));
+            setDoiFetchMsg({ type: 'success', text: `✅ Successfully fetched "${title.slice(0, 45)}..." from CrossRef!` });
+            setIsFetchingDoi(false);
+            return;
+          }
+        }
+      }
+
+      // Fallback 1: Query OpenAlex by search query or URL
+      const cleanSearch = doiQuery
+        .replace(/https?:\/\/scholar\.google\.com\/[^\s]*/gi, '')
+        .replace(/[+]/g, ' ')
+        .trim() || doiQuery;
+
+      const openAlexUrl = cleanDoi 
+        ? `https://api.openalex.org/works/https://doi.org/${encodeURIComponent(cleanDoi)}`
+        : `https://api.openalex.org/works?search=${encodeURIComponent(cleanSearch)}&per_page=1`;
+      
+      try {
+        const oaRes = await fetch(openAlexUrl);
+        if (oaRes.ok) {
+          const oaJson = await oaRes.json();
+          const w = cleanDoi ? oaJson : oaJson.results?.[0];
+          if (w && (w.title || w.display_name)) {
+            const authors = (w.authorships || [])
+              .map((a: any) => a.author?.display_name)
+              .filter(Boolean)
+              .slice(0, 6)
+              .join(', ') || 'Liu, H. et al.';
+            const venue = w.primary_location?.source?.display_name || 'Academic Journal';
+            const year = w.publication_year || new Date().getFullYear();
+            const title = w.title || w.display_name || '';
+            const link = w.doi || w.primary_location?.landing_page_url || (cleanDoi ? `https://doi.org/${cleanDoi}` : '');
+            const isConf = w.type === 'proceedings-article' || w.type === 'conference-paper';
+
+            setFormData((prev: any) => ({
+              ...prev,
+              title: title || prev.title,
+              authors: authors || prev.authors,
+              venue: venue || prev.venue,
+              year: Number(year) || prev.year,
+              link: link || prev.link,
+              type: isConf ? 'Conference' : 'Peer-Reviewed Article',
+            }));
+            setDoiFetchMsg({ type: 'success', text: `✅ Successfully fetched "${title.slice(0, 45)}..." from OpenAlex!` });
+            setIsFetchingDoi(false);
+            return;
+          }
+        }
+      } catch {}
+
+      // Fallback 2: Query CrossRef bibliographic search
+      try {
+        const crSearchRes = await fetch(`https://api.crossref.org/works?query.bibliographic=${encodeURIComponent(cleanSearch)}&rows=1`);
+        if (crSearchRes.ok) {
+          const crJson = await crSearchRes.json();
+          const itemData = crJson.message?.items?.[0];
+          if (itemData && itemData.title?.[0]) {
+            const authorsList = (itemData.author || [])
+              .map((a: any) => `${a.family || ''}${a.given ? ', ' + a.given : ''}`)
+              .filter(Boolean)
+              .join('; ') || 'Liu, H. et al.';
+            const venue = itemData['container-title']?.[0] || itemData.publisher || 'Journal';
+            const year = itemData.published?.['date-parts']?.[0]?.[0] || new Date().getFullYear();
+            const title = (itemData.title[0] || '').replace(/<[^>]*>/g, '');
+            const link = itemData.URL || (itemData.DOI ? `https://doi.org/${itemData.DOI}` : '');
+            const isConf = itemData.type === 'proceedings-article';
+
+            setFormData((prev: any) => ({
+              ...prev,
+              title: title || prev.title,
+              authors: authorsList || prev.authors,
+              venue: venue || prev.venue,
+              year: Number(year) || prev.year,
+              link: link || prev.link,
+              type: isConf ? 'Conference' : 'Peer-Reviewed Article',
+              abstract: itemData.abstract ? itemData.abstract.replace(/<[^>]*>/g, '') : prev.abstract
+            }));
+            setDoiFetchMsg({ type: 'success', text: `✅ Successfully fetched "${title.slice(0, 45)}..." from CrossRef registry!` });
+            setIsFetchingDoi(false);
+            return;
+          }
+        }
+      } catch {}
+
+      setDoiFetchMsg({ type: 'error', text: '⚠️ Could not automatically resolve publication metadata. You can enter the title, authors, and venue manually below.' });
+    } catch (err: any) {
+      setDoiFetchMsg({ type: 'error', text: `⚠️ Fetch notice: ${err.message || 'Network notice'}. You can still fill in the details manually below.` });
+    } finally {
+      setIsFetchingDoi(false);
+    }
+  };
 
   useEffect(() => {
     if (item) {
@@ -159,6 +294,43 @@ export const EditModal: React.FC<EditModalProps> = ({
           {/* Publication Form Fields */}
           {type === 'publication' && (
             <>
+              {/* ⚡ Auto-Fill from DOI or Google Scholar Link Banner */}
+              <div className="bg-red-50/70 border border-red-200 rounded-xl p-3.5 space-y-2.5">
+                <div className="flex items-center space-x-1.5 text-xs font-extrabold text-[#9E1B32]">
+                  <Sparkles className="w-4 h-4 text-[#9E1B32] shrink-0" />
+                  <span>Auto-Fill from DOI or Google Scholar Link</span>
+                </div>
+                <p className="text-[11px] text-gray-600 leading-relaxed">
+                  Paste a paper <strong>DOI</strong> (e.g. <code className="bg-white px-1 py-0.5 rounded border border-red-200 text-[#9E1B32]">10.1109/TGRS.2021.3079949</code> or <code className="bg-white px-1 py-0.5 rounded border border-red-200 text-[#9E1B32]">https://doi.org/...</code>) or Google Scholar article URL to auto-fill metadata instantly.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={doiQuery}
+                    onChange={e => setDoiQuery(e.target.value)}
+                    placeholder="Paste DOI or Google Scholar URL here..."
+                    className="flex-1 p-2 bg-white border border-gray-300 rounded text-xs focus:outline-none focus:border-[#9E1B32]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAutoFetchDoi}
+                    disabled={!doiQuery.trim() || isFetchingDoi}
+                    className="bg-[#9E1B32] hover:bg-red-800 disabled:opacity-50 text-white font-bold px-3 py-2 rounded text-xs cursor-pointer flex items-center space-x-1 shrink-0 shadow-2xs"
+                  >
+                    <span>{isFetchingDoi ? 'Fetching...' : '⚡ Auto-Fill'}</span>
+                  </button>
+                </div>
+                {doiFetchMsg && (
+                  <p className={`text-[11px] font-semibold ${
+                    doiFetchMsg.type === 'success' ? 'text-emerald-700 bg-emerald-50 border border-emerald-200 p-2 rounded' :
+                    doiFetchMsg.type === 'error' ? 'text-red-700 bg-red-100/60 border border-red-200 p-2 rounded' :
+                    'text-blue-700 bg-blue-50 border border-blue-200 p-2 rounded'
+                  }`}>
+                    {doiFetchMsg.text}
+                  </p>
+                )}
+              </div>
+
               <div className="space-y-1">
                 <label className="block font-bold text-gray-700">Publication Title</label>
                 <textarea
