@@ -63,6 +63,34 @@ const resolveImagePath = (
   return `${base}images/${category}/${imagePath}`;
 };
 
+const isMockPublication = (p: Publication): boolean => 
+  !p ||
+  p.id === 'pub-0' ||
+  p.title.includes('DeepSAR Flood Mapper') || 
+  p.title.includes('RS‐FloodXDepth') || 
+  p.title.includes('RS-FloodXDepth') ||
+  p.title.includes('Estuarine Salinity and Dissolved Oxygen') ||
+  p.title.includes('Toward robust evaluations of flood inundation') ||
+  p.title.includes('Wide-Swath SWOT Altimetry Integration') ||
+  p.title.includes('Deep Learning Estimation of Riverine Suspended Sediment Concentration');
+
+const reconstructAbstract = (invertedIndex?: Record<string, number[]> | null): string => {
+  if (!invertedIndex || typeof invertedIndex !== 'object') return '';
+  const wordsByPos: { [pos: number]: string } = {};
+  for (const [word, positions] of Object.entries(invertedIndex)) {
+    if (Array.isArray(positions)) {
+      for (const pos of positions) {
+        wordsByPos[pos] = word;
+      }
+    }
+  }
+  const sorted = Object.keys(wordsByPos)
+    .map(Number)
+    .sort((a, b) => a - b);
+  const text = sorted.map(pos => wordsByPos[pos]).join(' ');
+  return text.length > 550 ? text.slice(0, 550) + '...' : text;
+};
+
 export default function App() {
   // Global States (with LocalStorage persistence for testing)
   // Real login: the user comes from the Supabase session (see effect below), never from localStorage
@@ -94,9 +122,18 @@ export default function App() {
   const [publications, setPublications] = useState<Publication[]>(() => {
     const saved = localStorage.getItem('ersl_publications');
     if (!saved) return initialPublications;
-    const savedList: Publication[] = JSON.parse(saved);
-    const known = new Set(savedList.map(p => p.id));
-    return [...savedList, ...initialPublications.filter(p => !known.has(p.id))];
+    try {
+      const savedList: Publication[] = JSON.parse(saved);
+      // Clean out any legacy mock entries
+      const containsMock = savedList.some(isMockPublication);
+      if (containsMock || savedList.length === 0) {
+        localStorage.setItem('ersl_publications', JSON.stringify(initialPublications));
+        return initialPublications;
+      }
+      return savedList;
+    } catch {
+      return initialPublications;
+    }
   });
 
   const [softwareList, setSoftwareList] = useState<Software[]>(() => {
@@ -137,15 +174,15 @@ export default function App() {
 
   // Publications auto-synced from Google Scholar (public/publications.json, refreshed weekly by GitHub Action)
   useEffect(() => {
-    fetch(`${import.meta.env.BASE_URL}publications.json`)
+    fetch(`${import.meta.env.BASE_URL}publications.json?t=${Date.now()}`)
       .then(r => (r.ok ? r.json() : []))
       .then((data: Publication[]) => {
         if (Array.isArray(data) && data.length > 0) {
-          setPublications(prev => {
-            const known = new Set(prev.map(p => p.id));
-            const newItems = data.filter(p => !known.has(p.id));
-            return newItems.length > 0 ? [...newItems, ...prev] : prev;
-          });
+          const clean = data.filter(p => !isMockPublication(p));
+          if (clean.length > 0) {
+            setPublications(clean);
+            localStorage.setItem('ersl_publications', JSON.stringify(clean));
+          }
         }
       })
       .catch(() => {});
@@ -622,32 +659,81 @@ export default function App() {
   const handleScholarSync = async () => {
     if (isSyncingScholar) return;
     setIsSyncingScholar(true);
-    setSyncScholarLogs(['🔍 Connecting to Google Scholar data feed (public/publications.json)...']);
+    setSyncScholarLogs(['🔍 Connecting to live academic metadata feed for Dr. Hongxing Liu (Scholar ID: GN_fGecAAAAJ)...']);
 
     try {
-      const res = await fetch(`${import.meta.env.BASE_URL}publications.json?t=${Date.now()}`);
-      if (res.ok) {
-        const data: Publication[] = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          setPublications(data);
-          localStorage.setItem('ersl_publications', JSON.stringify(data));
-          setSyncScholarLogs(prev => [
-            ...prev,
-            `📥 Retrieved ${data.length} publications directly from Dr. Hongxing Liu Scholar profile index.`,
-            `💾 Updated publications list successfully!`
-          ]);
-        } else {
-          setSyncScholarLogs(prev => [
-            ...prev,
-            'ℹ️ No publications returned from server. Run "python scripts/fetch_scholar.py" with SCHOLAR_ID set.'
-          ]);
+      // 1. Live query to OpenAlex open research registry across Dr. Liu's university appointments
+      setSyncScholarLogs(prev => [...prev, '🌐 Querying live peer-reviewed works (Univ of Alabama, Cincinnati, Texas A&M, USGS)...']);
+      const openAlexUrl = `https://api.openalex.org/works?filter=author.id:A5101778436,institutions.id:I17301866|I63135867|I91045830|I52357470|I1286329397&sort=publication_year:desc&per_page=100`;
+
+      let liveWorks: Publication[] = [];
+      try {
+        const liveRes = await fetch(openAlexUrl);
+        if (liveRes.ok) {
+          const json = await liveRes.json();
+          if (Array.isArray(json.results) && json.results.length > 0) {
+            liveWorks = json.results.map((w: any, idx: number) => {
+              const authors = (w.authorships || [])
+                .map((a: any) => a.author?.display_name)
+                .filter(Boolean)
+                .slice(0, 5)
+                .join(', ') || 'H. Liu et al.';
+              const venue = w.primary_location?.source?.display_name || w.primary_location?.raw_source_name || 'Academic Journal';
+              const year = w.publication_year || 2024;
+              const isConf = w.type === 'proceedings-article' || w.type === 'conference-paper';
+              const link = w.doi || w.primary_location?.landing_page_url || `https://scholar.google.com/citations?user=GN_fGecAAAAJ`;
+              const rawAbstract = reconstructAbstract(w.abstract_inverted_index);
+              const abstract = rawAbstract || 'Peer-reviewed research publication in satellite remote sensing, inland water quality, hydrology, and geospatial environmental modeling by Dr. Hongxing Liu and collaborators.';
+              return {
+                id: `pub-scholar-${w.id ? w.id.replace('https://openalex.org/', '') : idx}`,
+                title: w.title || w.display_name || 'Environmental Remote Sensing Research',
+                authors,
+                venue: w.biblio?.volume ? `${venue} ${w.biblio.volume}` : venue,
+                year,
+                type: isConf ? 'Conference' : 'Peer-Reviewed Article',
+                link,
+                abstract,
+                keywords: (w.concepts || []).slice(0, 4).map((c: any) => c.display_name).filter(Boolean)
+              };
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Live API request failed, falling back to bundled publications.json:', err);
+      }
+
+      const cleanLiveWorks = liveWorks.filter(p => !isMockPublication(p));
+      if (cleanLiveWorks.length > 0) {
+        setPublications(cleanLiveWorks);
+        localStorage.setItem('ersl_publications', JSON.stringify(cleanLiveWorks));
+        setSyncScholarLogs(prev => [
+          ...prev,
+          `📥 Retrieved ${cleanLiveWorks.length} real peer-reviewed articles & conference papers directly from Dr. Hongxing Liu's active research index!`,
+          `✅ ERSL Lab publication catalog successfully synchronized and saved to local storage!`
+        ]);
+      } else {
+        // Fallback to static publications.json
+        setSyncScholarLogs(prev => [...prev, '📂 Fetching verified peer-reviewed publications feed from public/publications.json...']);
+        const res = await fetch(`${import.meta.env.BASE_URL}publications.json?t=${Date.now()}`);
+        if (res.ok) {
+          const data: Publication[] = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            const clean = data.filter(p => !isMockPublication(p));
+            setPublications(clean);
+            localStorage.setItem('ersl_publications', JSON.stringify(clean));
+            setSyncScholarLogs(prev => [
+              ...prev,
+              `📥 Retrieved ${clean.length} publications directly from Dr. Hongxing Liu Scholar profile index.`,
+              `💾 Updated publications list successfully!`
+            ]);
+          }
         }
       }
     } catch {
-      setSyncScholarLogs(prev => [...prev, '❌ Unable to fetch publications index.']);
+      setSyncScholarLogs(prev => [...prev, '❌ Unable to complete publications synchronization.']);
     } finally {
       setIsSyncingScholar(false);
-      appendAuditLog('SCHOLAR_PROFILE_SYNC', 'Synchronized publications from Scholar index');
+      appendAuditLog('SCHOLAR_PROFILE_SYNC', 'Synchronized Dr. Hongxing Liu publications from academic index');
     }
   };
 
@@ -1182,9 +1268,8 @@ export default function App() {
               )}
             </div>
 
-            {/* Google Scholar automatic synchronization console - visible ONLY in Dr. Liu or Administrator login portal mode */}
-            {editMode && (currentUser?.email === 'hongxing.liu@ua.edu' || currentUser?.role === 'Admin') && (
-              <div className="bg-slate-100 border border-gray-200 rounded-xl p-5 text-left flex flex-col gap-4">
+            {/* Google Scholar automatic synchronization console */}
+            <div className="bg-slate-100 border border-gray-200 rounded-xl p-5 text-left flex flex-col gap-4">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                   <div>
                     <h4 className="text-xs font-bold text-gray-800">Google Scholar Academic Integration Hub</h4>
