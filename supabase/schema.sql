@@ -11,9 +11,15 @@ create table if not exists public.profiles (
 
 create or replace function public.handle_new_user() returns trigger
 language plpgsql security definer set search_path = public as $$
+declare
+  user_role text := 'pending';
 begin
-  insert into public.profiles (id, email, name)
-  values (new.id, new.email, coalesce(new.raw_user_meta_data->>'name', ''));
+  if lower(new.email) in ('hongxing.liu@ua.edu', 'naveenpurushothaman1098@gmail.com') then
+    user_role := 'admin';
+  end if;
+  insert into public.profiles (id, email, name, role)
+  values (new.id, new.email, coalesce(new.raw_user_meta_data->>'name', ''), user_role)
+  on conflict (id) do update set role = user_role;
   return new;
 end $$;
 

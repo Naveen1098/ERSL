@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, MessageSquare, AlertTriangle, Bell } from 'lucide-react';
+import { Plus, Trash2, MessageSquare, AlertTriangle, Bell, Calendar as CalendarIcon, List, ChevronLeft, ChevronRight, User as UserIcon } from 'lucide-react';
 import { supabase, Profile } from '../lib/supabase';
 import type { User } from '../types';
 
@@ -21,11 +21,11 @@ interface Comment {
   created_at: string;
 }
 
-const STATUS: Record<Status, { label: string; cls: string }> = {
-  not_started: { label: 'Not yet started', cls: 'bg-slate-100 text-slate-700 border-slate-200' },
-  in_progress: { label: 'In process', cls: 'bg-blue-100 text-blue-700 border-blue-200' },
-  completed: { label: 'Completed', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-  discuss_with_liu: { label: 'Need to discuss with Dr. Liu', cls: 'bg-amber-100 text-amber-800 border-amber-200' },
+const STATUS: Record<Status, { label: string; cls: string; dot: string }> = {
+  not_started: { label: 'Not yet started', cls: 'bg-slate-100 text-slate-700 border-slate-200', dot: 'bg-slate-400' },
+  in_progress: { label: 'In process', cls: 'bg-blue-100 text-blue-700 border-blue-200', dot: 'bg-blue-500' },
+  completed: { label: 'Completed', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
+  discuss_with_liu: { label: 'Need to discuss with Dr. Liu', cls: 'bg-amber-100 text-amber-800 border-amber-200', dot: 'bg-amber-500' },
 };
 
 const daysUntil = (d: string | null) => {
@@ -39,7 +39,16 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [people, setPeople] = useState<Profile[]>([]);
   const [comments, setComments] = useState<Record<string, Comment[]>>({});
+  
+  // View mode switcher: List vs Calendar
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+
+  // Filter: Admin can filter by member ('all' or specific ID), regular members are locked to their own ID
   const [filterOwner, setFilterOwner] = useState<string>(isAdmin ? 'all' : currentUser.id);
+
+  // Calendar month state
+  const [currentMonthDate, setCurrentMonthDate] = useState(new Date());
+
   const [open, setOpen] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [form, setForm] = useState({ title: '', description: '', due_date: '', owner_id: currentUser.id });
@@ -54,17 +63,19 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     else setTasks((t.data || []) as Task[]);
     if (p.data) setPeople(p.data as Profile[]);
   }, []);
+
   useEffect(() => { load(); }, [load]);
 
   const nameOf = (id: string) => people.find(p => p.id === id)?.name || people.find(p => p.id === id)?.email || 'Unknown';
 
   const addTask = async (e: React.FormEvent) => {
     e.preventDefault();
+    const targetOwner = isAdmin ? form.owner_id : currentUser.id;
     const { error: err } = await supabase!.from('tasks').insert({
       title: form.title,
       description: form.description,
       due_date: form.due_date || null,
-      owner_id: isAdmin ? form.owner_id : currentUser.id,
+      owner_id: targetOwner,
       created_by: currentUser.id,
     });
     if (err) setError(err.message);
@@ -97,32 +108,55 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     loadComments(taskId);
   };
 
-  const visible = useMemo(
-    () => tasks.filter(t => filterOwner === 'all' || t.owner_id === filterOwner),
-    [tasks, filterOwner]
-  );
+  // Role Scoping: Admin sees filtered selection (or all), members ONLY see their own tasks
+  const visible = useMemo(() => {
+    if (!isAdmin) {
+      return tasks.filter(t => t.owner_id === currentUser.id);
+    }
+    return tasks.filter(t => filterOwner === 'all' || t.owner_id === filterOwner);
+  }, [tasks, isAdmin, filterOwner, currentUser.id]);
 
   const alerts = useMemo(
-    () => tasks.filter(t => {
+    () => visible.filter(t => {
       const d = daysUntil(t.due_date);
-      return t.status !== 'completed' && d !== null && d <= 3 && (isAdmin || t.owner_id === currentUser.id);
+      return t.status !== 'completed' && d !== null && d <= 3;
     }),
-    [tasks, isAdmin, currentUser.id]
+    [visible]
   );
 
+  // Calendar Days calculation
+  const calendarDays = useMemo(() => {
+    const year = currentMonthDate.getFullYear();
+    const month = currentMonthDate.getMonth();
+    const firstDayIndex = new Date(year, month, 1).getDay();
+    const totalDays = new Date(year, month + 1, 0).getDate();
+
+    const days = [];
+    for (let i = 0; i < firstDayIndex; i++) {
+      days.push(null); // empty padding cell
+    }
+    for (let d = 1; d <= totalDays; d++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      days.push({ day: d, dateStr });
+    }
+    return days;
+  }, [currentMonthDate]);
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 text-left">
+    <div className="space-y-6 animate-in fade-in duration-300 text-left select-none">
+      {/* Top Banner */}
       <div className="bg-[#9E1B32] rounded-2xl p-6 md:p-8 text-white shadow-md">
-        <span className="bg-white/10 px-2.5 py-1 rounded text-[10px] font-extrabold uppercase tracking-widest">PRIVATE · LAB MEMBERS</span>
-        <h2 className="text-2xl md:text-3xl font-extrabold mt-2 tracking-tight">Work Plan</h2>
+        <span className="bg-white/10 px-2.5 py-1 rounded text-[10px] font-extrabold uppercase tracking-widest">PRIVATE · LAB WORKSPACE</span>
+        <h2 className="text-2xl md:text-3xl font-extrabold mt-2 tracking-tight">Work Plan & Progress Calendar</h2>
         <p className="text-xs md:text-sm text-red-100 mt-1 max-w-xl">
-          {isAdmin ? 'Monitor every team member’s tasks, status and comments.' : 'Your tasks, deadlines and status. Dr. Liu can see your progress.'}
+          {isAdmin ? 'Dr. Liu Dashboard: Oversee and monitor all lab team members’ task schedules and status.' : 'Your personal work plan and due dates. Dr. Liu can review your entries.'}
         </p>
       </div>
 
+      {/* Alerts */}
       {alerts.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs space-y-1.5">
-          <p className="font-extrabold text-amber-800 flex items-center gap-1.5"><Bell className="w-4 h-4" /> Deadlines needing attention ({alerts.length})</p>
+          <p className="font-extrabold text-amber-800 flex items-center gap-1.5"><Bell className="w-4 h-4" /> Upcoming & Overdue Deadlines ({alerts.length})</p>
           {alerts.map(t => {
             const d = daysUntil(t.due_date)!;
             return (
@@ -133,80 +167,208 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
           })}
         </div>
       )}
+
       {error && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded p-2">{error}</p>}
 
+      {/* Add Task Bar */}
       <form onSubmit={addTask} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 grid grid-cols-1 md:grid-cols-12 gap-3 text-xs items-end">
         <div className="md:col-span-3 space-y-1">
-          <label className="font-bold text-gray-700">Task</label>
+          <label className="font-bold text-gray-700">Task Title</label>
           <input required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })}
-            className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:border-[#9E1B32]" placeholder="e.g. Finish SAR preprocessing" />
+            className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:border-[#9E1B32]" placeholder="e.g., Sentinel-2 Chlorophyll-a Calibration" />
         </div>
         <div className="md:col-span-3 space-y-1">
-          <label className="font-bold text-gray-700">Details</label>
+          <label className="font-bold text-gray-700">Description / Target Output</label>
           <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
-            className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:border-[#9E1B32]" />
+            className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:border-[#9E1B32]" placeholder="Details or milestones..." />
         </div>
         <div className="md:col-span-2 space-y-1">
-          <label className="font-bold text-gray-700">Due date</label>
+          <label className="font-bold text-gray-700">Due Date</label>
           <input type="date" value={form.due_date} onChange={e => setForm({ ...form, due_date: e.target.value })}
             className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:border-[#9E1B32]" />
         </div>
         {isAdmin && (
           <div className="md:col-span-2 space-y-1">
-            <label className="font-bold text-gray-700">Assign to</label>
+            <label className="font-bold text-gray-700">Assign To</label>
             <select value={form.owner_id} onChange={e => setForm({ ...form, owner_id: e.target.value })}
-              className="w-full p-2 border border-gray-300 rounded">
+              className="w-full p-2 border border-gray-300 rounded font-semibold text-gray-700">
               {people.map(p => <option key={p.id} value={p.id}>{p.name || p.email}</option>)}
             </select>
           </div>
         )}
-        <button className="md:col-span-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded flex items-center justify-center gap-1 cursor-pointer">
-          <Plus className="w-3.5 h-3.5" /> Add task
+        <button className={`${isAdmin ? 'md:col-span-2' : 'md:col-span-4'} bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded flex items-center justify-center gap-1 cursor-pointer transition-colors`}>
+          <Plus className="w-3.5 h-3.5" /> Add Task
         </button>
       </form>
 
-      {isAdmin && (
-        <div className="flex items-center gap-2 text-xs">
-          <span className="font-bold text-gray-500 uppercase tracking-wider">Team member:</span>
-          <select value={filterOwner} onChange={e => setFilterOwner(e.target.value)} className="p-2 border border-gray-200 rounded bg-white font-semibold">
-            <option value="all">All members</option>
-            {people.map(p => <option key={p.id} value={p.id}>{p.name || p.email}</option>)}
-          </select>
+      {/* Control Bar: View Mode Switcher + Member Filter (Admin only) */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm text-xs">
+        {/* Left: View Mode Toggle */}
+        <div className="flex items-center space-x-2 bg-slate-100 p-1 rounded-lg">
+          <button
+            onClick={() => setViewMode('list')}
+            className={`px-3 py-1.5 rounded-md font-bold flex items-center space-x-1.5 transition-all cursor-pointer ${
+              viewMode === 'list' ? 'bg-white text-[#9E1B32] shadow-xs' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <List className="w-4 h-4" />
+            <span>List View</span>
+          </button>
+          <button
+            onClick={() => setViewMode('calendar')}
+            className={`px-3 py-1.5 rounded-md font-bold flex items-center space-x-1.5 transition-all cursor-pointer ${
+              viewMode === 'calendar' ? 'bg-white text-[#9E1B32] shadow-xs' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <CalendarIcon className="w-4 h-4" />
+            <span>Calendar View</span>
+          </button>
+        </div>
+
+        {/* Right: Admin Filter or Member Badge */}
+        {isAdmin ? (
+          <div className="flex items-center space-x-2">
+            <UserIcon className="w-4 h-4 text-gray-400" />
+            <span className="font-bold text-gray-700">Filter Team Member:</span>
+            <select
+              value={filterOwner}
+              onChange={e => setFilterOwner(e.target.value)}
+              className="p-2 border border-gray-200 rounded-lg bg-slate-50 font-bold text-gray-800 focus:outline-none focus:border-[#9E1B32]"
+            >
+              <option value="all">👥 All Team Members ({tasks.length} tasks)</option>
+              {people.map(p => (
+                <option key={p.id} value={p.id}>
+                  👤 {p.name || p.email} ({tasks.filter(t => t.owner_id === p.id).length})
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="text-xs font-bold text-gray-600 bg-slate-50 border border-gray-200 px-3 py-1.5 rounded-lg flex items-center space-x-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span>Viewing Personal Workplan: {currentUser.name}</span>
+          </div>
+        )}
+      </div>
+
+      {/* VIEW MODE 1: LIST VIEW */}
+      {viewMode === 'list' && (
+        <div className="space-y-3">
+          {visible.length === 0 && (
+            <div className="bg-white p-12 rounded-xl border border-dashed border-gray-300 text-center text-xs text-gray-500">
+              No tasks scheduled for this selection.
+            </div>
+          )}
+          {visible.map(t => {
+            const d = daysUntil(t.due_date);
+            const overdue = d !== null && d < 0 && t.status !== 'completed';
+            return (
+              <div key={t.id} className={`bg-white rounded-xl border shadow-xs p-4 transition-all hover:shadow-md ${overdue ? 'border-red-300 bg-red-50/10' : 'border-gray-100'}`}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center space-x-2">
+                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${STATUS[t.status].dot}`}></span>
+                      <p className="font-extrabold text-slate-800 text-sm">{t.title}</p>
+                    </div>
+                    {t.description && <p className="text-xs text-gray-600 mt-1 pl-4 leading-relaxed">{t.description}</p>}
+                    <p className="text-[11px] text-gray-400 mt-2 pl-4 font-semibold">
+                      {isAdmin && <>👤 Assigned to: <strong className="text-gray-700">{nameOf(t.owner_id)}</strong> · </>}
+                      {t.due_date ? <>📅 Due: {t.due_date}{overdue && <span className="text-red-600 font-bold inline-flex items-center gap-0.5 ml-1.5"><AlertTriangle className="w-3 h-3" /> Overdue</span>}</> : 'No due date set'}
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2 shrink-0">
+                    <select value={t.status} onChange={e => update(t.id, { status: e.target.value as Status })}
+                      className={`text-xs font-bold px-2.5 py-1.5 rounded-lg border cursor-pointer ${STATUS[t.status].cls}`}>
+                      {(Object.keys(STATUS) as Status[]).map(s => <option key={s} value={s}>{STATUS[s].label}</option>)}
+                    </select>
+                    <button onClick={() => toggle(t.id)} className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer text-gray-600" title="View Comments">
+                      <MessageSquare className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => remove(t)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 cursor-pointer" title="Delete Task">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                {open === t.id && (
+                  <CommentBox list={comments[t.id] || []} onAdd={body => addComment(t.id, body)} />
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      <div className="space-y-3">
-        {visible.length === 0 && <div className="bg-white p-10 rounded-xl border border-dashed border-gray-300 text-center text-xs text-gray-500">No tasks yet.</div>}
-        {visible.map(t => {
-          const d = daysUntil(t.due_date);
-          const overdue = d !== null && d < 0 && t.status !== 'completed';
-          return (
-            <div key={t.id} className={`bg-white rounded-xl border shadow-sm p-4 ${overdue ? 'border-red-300' : 'border-gray-100'}`}>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-extrabold text-slate-800 text-sm">{t.title}</p>
-                  {t.description && <p className="text-xs text-gray-600 mt-0.5">{t.description}</p>}
-                  <p className="text-[11px] text-gray-400 mt-1 font-semibold">
-                    {(isAdmin || t.owner_id !== currentUser.id) && <>👤 {nameOf(t.owner_id)} · </>}
-                    {t.due_date ? <>Due {t.due_date}{overdue && <span className="text-red-600 inline-flex items-center gap-0.5 ml-1"><AlertTriangle className="w-3 h-3" />overdue</span>}</> : 'No due date'}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <select value={t.status} onChange={e => update(t.id, { status: e.target.value as Status })}
-                    className={`text-xs font-bold px-2 py-1.5 rounded border cursor-pointer ${STATUS[t.status].cls}`}>
-                    {(Object.keys(STATUS) as Status[]).map(s => <option key={s} value={s}>{STATUS[s].label}</option>)}
-                  </select>
-                  <button onClick={() => toggle(t.id)} className="p-1.5 rounded border border-gray-200 hover:bg-gray-50 cursor-pointer" title="Comments"><MessageSquare className="w-3.5 h-3.5 text-gray-600" /></button>
-                  <button onClick={() => remove(t)} className="p-1.5 rounded text-red-500 hover:bg-red-50 cursor-pointer" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
-                </div>
-              </div>
-              {open === t.id && (
-                <CommentBox list={comments[t.id] || []} onAdd={body => addComment(t.id, body)} />
-              )}
+      {/* VIEW MODE 2: CALENDAR VIEW */}
+      {viewMode === 'calendar' && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
+          {/* Month Header Navigation */}
+          <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+            <h3 className="font-extrabold text-base text-slate-900">
+              {currentMonthDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+            </h3>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setCurrentMonthDate(new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth() - 1, 1))}
+                className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4 text-gray-600" />
+              </button>
+              <button
+                onClick={() => setCurrentMonthDate(new Date())}
+                className="text-xs font-bold px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer"
+              >
+                Today
+              </button>
+              <button
+                onClick={() => setCurrentMonthDate(new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth() + 1, 1))}
+                className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer"
+              >
+                <ChevronRight className="w-4 h-4 text-gray-600" />
+              </button>
             </div>
-          );
-        })}
-      </div>
+          </div>
+
+          {/* Calendar Grid */}
+          <div className="grid grid-cols-7 gap-1 text-center text-xs font-extrabold text-gray-400 uppercase tracking-wider pb-2 border-b border-gray-100">
+            <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+          </div>
+
+          <div className="grid grid-cols-7 gap-1.5">
+            {calendarDays.map((item, idx) => {
+              if (!item) {
+                return <div key={`empty-${idx}`} className="h-28 bg-slate-50/50 rounded-xl border border-transparent"></div>;
+              }
+              const dayTasks = visible.filter(t => t.due_date === item.dateStr);
+              const isToday = item.dateStr === new Date().toISOString().slice(0, 10);
+              return (
+                <div key={item.dateStr} className={`h-28 p-1.5 rounded-xl border flex flex-col justify-start overflow-hidden text-left transition-all ${
+                  isToday ? 'border-[#9E1B32] bg-red-50/20' : 'border-gray-100 bg-white'
+                }`}>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${isToday ? 'bg-[#9E1B32] text-white' : 'text-gray-700'}`}>
+                      {item.day}
+                    </span>
+                    {dayTasks.length > 0 && <span className="text-[9px] font-mono text-gray-400">{dayTasks.length} task(s)</span>}
+                  </div>
+                  <div className="space-y-1 overflow-y-auto max-h-20">
+                    {dayTasks.map(t => (
+                      <div
+                        key={t.id}
+                        onClick={() => toggle(t.id)}
+                        className={`text-[9px] font-bold p-1 rounded border leading-tight truncate cursor-pointer hover:scale-102 transition-all ${STATUS[t.status].cls}`}
+                        title={`${t.title} (${STATUS[t.status].label})`}
+                      >
+                        {isAdmin && <span className="font-extrabold">{nameOf(t.owner_id).split(' ')[0]}: </span>}
+                        {t.title}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -216,14 +378,14 @@ const CommentBox: React.FC<{ list: Comment[]; onAdd: (b: string) => void }> = ({
   return (
     <div className="mt-3 pt-3 border-t border-gray-100 space-y-2 text-xs">
       {list.map(c => (
-        <p key={c.id} className="bg-slate-50 rounded p-2">
+        <p key={c.id} className="bg-slate-50 rounded p-2 text-left">
           <strong>{c.author_name}</strong> <span className="text-gray-400">{new Date(c.created_at).toLocaleString()}</span><br />{c.body}
         </p>
       ))}
       <form onSubmit={e => { e.preventDefault(); onAdd(text); setText(''); }} className="flex gap-2">
-        <input value={text} onChange={e => setText(e.target.value)} placeholder="Add a comment..."
-          className="flex-1 p-2 border border-gray-300 rounded focus:outline-none focus:border-[#9E1B32]" />
-        <button className="bg-[#9E1B32] text-white font-bold px-3 rounded cursor-pointer">Post</button>
+        <input value={text} onChange={e => setText(e.target.value)} placeholder="Add a comment or status update..."
+          className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:border-[#9E1B32]" />
+        <button className="bg-[#9E1B32] hover:bg-red-800 text-white font-bold px-3 rounded-lg cursor-pointer transition-colors">Post</button>
       </form>
     </div>
   );

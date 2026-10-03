@@ -33,11 +33,12 @@ export const UAHeader: React.FC<UAHeaderProps> = ({
 
   const [logoFailed, setLogoFailed] = useState(false);
 
-  // Order: ERSL (brand/home) -> People -> Research Areas -> Publications -> Teaching Materials -> Field Photos
+  // Navigation tabs list
   const tabs = [
     { id: 'people', label: 'People' },
     { id: 'research', label: 'Research Areas' },
     { id: 'publications', label: 'Publications' },
+    { id: 'professional', label: 'Professional Development' },
     ...(currentUser ? [{ id: 'teaching', label: 'Teaching Materials' }] : []),
     { id: 'field', label: 'Field Photos' },
     ...(currentUser ? [{ id: 'bulletins', label: 'Lab Bulletins' }, { id: 'workplan', label: 'Work Plan' }] : []),
@@ -93,24 +94,32 @@ export const UAHeader: React.FC<UAHeaderProps> = ({
           {/* Logo / Brand Name */}
           <button 
             onClick={() => onTabChange('home')} 
-            className="flex items-center space-x-3 text-left focus:outline-none cursor-pointer group"
+            className="flex items-center space-x-3 text-left focus:outline-none cursor-pointer group py-1"
           >
-            {/* Lab logo: drop your file at public/images/logo/logo.png */}
-            {logoFailed ? (
-              <div className="w-12 h-12 rounded-lg border-2 border-dashed border-gray-300 text-gray-400 flex items-center justify-center text-[9px] font-bold text-center leading-tight shrink-0">
-                LAB<br />LOGO
-              </div>
-            ) : (
-              <img
-                src={`${import.meta.env.BASE_URL}images/logo/logo.png`}
-                onError={() => setLogoFailed(true)}
-                alt="ERSL logo"
-                className="w-12 h-12 object-contain shrink-0"
-              />
-            )}
-            <span className={`font-extrabold text-xl md:text-2xl tracking-tight transition-colors group-hover:text-red-800 ${currentTab === 'home' ? 'text-[#9E1B32]' : 'text-[#9E1B32]/90'}`}>
-              Environmental Remote Sensing Laboratory
-            </span>
+            {/* Lab logo slot with prominent high-visibility container */}
+            <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-white border border-red-100 shadow-md p-2 flex items-center justify-center shrink-0 ring-2 ring-[#9E1B32]/15 group-hover:ring-[#9E1B32]/40 group-hover:scale-105 transition-all">
+              {logoFailed ? (
+                <div className="w-full h-full rounded-xl bg-gradient-to-br from-[#9E1B32] to-[#7A1527] text-white flex flex-col items-center justify-center text-[10px] font-black tracking-tighter leading-tight shadow-sm">
+                  <span>ERSL</span>
+                  <span className="text-[7px] text-red-200 font-bold uppercase tracking-widest">UA</span>
+                </div>
+              ) : (
+                <img
+                  src={`${import.meta.env.BASE_URL}images/logo/logo.png`}
+                  onError={() => setLogoFailed(true)}
+                  alt="ERSL Lab Logo"
+                  className="w-full h-full object-contain drop-shadow-xs"
+                />
+              )}
+            </div>
+            <div className="flex flex-col">
+              <span className={`font-extrabold text-xl md:text-2xl tracking-tight transition-colors group-hover:text-red-800 ${currentTab === 'home' ? 'text-[#9E1B32]' : 'text-[#9E1B32]/95'}`}>
+                Environmental Remote Sensing Laboratory
+              </span>
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest hidden sm:inline-block">
+                The University of Alabama • ERSL
+              </span>
+            </div>
           </button>
 
           {/* Desktop Navigation Links */}

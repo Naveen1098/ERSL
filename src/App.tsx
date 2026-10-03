@@ -26,6 +26,7 @@ import { LoginModal } from './components/LoginModal';
 import { Workplan } from './components/Workplan';
 import { BoxFolders } from './components/BoxFolders';
 import { MemberManager } from './components/MemberManager';
+import { ProfessionalDevelopment } from './components/ProfessionalDevelopment';
 import { supabase, fetchProfile, profileToUser } from './lib/supabase';
 
 // Field photos: any image dropped into src/assets/field/ is picked up automatically
@@ -344,6 +345,8 @@ export default function App() {
     if (!currentUser) {
       localStorage.removeItem('ersl_user'); // clear any old fake-SSO session
       setEditMode(false);
+    } else if (currentUser.role === 'Admin') {
+      setEditMode(true);
     }
   }, [currentUser]);
 
@@ -686,18 +689,6 @@ export default function App() {
           </div>
 
           <div className="flex items-center space-x-3">
-            <label className="flex items-center space-x-1.5 font-bold text-slate-200 bg-slate-800 px-2.5 py-1 rounded cursor-pointer hover:bg-slate-750 transition-all">
-              <input
-                type="checkbox"
-                checked={editMode}
-                onChange={() => {
-                  setEditMode(!editMode);
-                  appendAuditLog('TOGGLE_EDIT_MODE', `Switched edit widgets ${!editMode ? 'ON' : 'OFF'}`);
-                }}
-                className="rounded text-[#9E1B32] focus:ring-[#9E1B32] border-slate-600"
-              />
-              <span>Interactive Editing Widgets ({editMode ? 'Visible' : 'Hidden'})</span>
-            </label>
             <button
               onClick={() => setActiveTab('admin')}
               className="bg-[#9E1B32] text-white text-[10px] font-extrabold px-2.5 py-1 rounded uppercase tracking-wider hover:bg-red-800 transition-colors cursor-pointer"
@@ -857,355 +848,6 @@ export default function App() {
                   </div>
                 </div>
               </div>
-            </div>
-
-            {/* Interactive Hydrologic Remote Sensing Band & Water Index Simulator */}
-            <div className="bg-gradient-to-br from-[#061f30] to-[#011424] text-white p-6 md:p-8 rounded-2xl shadow-xl text-left border border-blue-900/40 relative overflow-hidden">
-              {/* Background abstract water currents / wave patterns */}
-              <div className="absolute inset-0 opacity-10 pointer-events-none">
-                <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M0,50 Q100,100 200,50 T400,50 T600,50 T800,50 T1000,50 T1200,50 L1200,200 L0,200 Z" fill="none" stroke="currentColor" strokeWidth="2" />
-                  <path d="M0,80 Q150,130 300,80 T600,80 T900,80 T1200,80 L1200,200 L0,200 Z" fill="none" stroke="currentColor" strokeWidth="1" strokeDasharray="5 5" />
-                </svg>
-              </div>
-
-              <div className="relative z-10 space-y-6">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                  <div>
-                    <span className="bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 px-2.5 py-1 rounded text-[10px] font-extrabold uppercase tracking-widest">
-                      🌊 Interactive Lab Dashboard Feature
-                    </span>
-                    <h3 className="text-xl md:text-2xl font-black mt-2 tracking-tight text-white">
-                      Water Reflectance & Multi-Spectral Band Simulator
-                    </h3>
-                    <p className="text-xs text-blue-200/80 mt-1 max-w-xl font-medium">
-                      Simulate how various satellite and UAV sensors analyze local riverine and reservoir bodies based on their spectral signatures.
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-2 bg-blue-950/80 px-3 py-1.5 rounded-lg border border-blue-900/50">
-                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-                    <span className="font-mono text-[10px] text-cyan-300 font-bold uppercase tracking-wider">Mobile River Basin Profile</span>
-                  </div>
-                </div>
-
-                {/* Spectral Bands selection buttons */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
-                  {[
-                    { id: 'blue', label: 'Coastal Blue', wave: '443 nm', color: 'border-blue-500 hover:bg-blue-950 text-blue-300', desc: 'Maximum depth penetration. Used for bathymetric inversion and turbidity indexing.' },
-                    { id: 'green', label: 'Spectral Green', wave: '560 nm', color: 'border-emerald-500 hover:bg-emerald-950 text-emerald-300', desc: 'High chlorophyll-a sensitivity. Essential for tracking toxic harmful algal blooms (HABs).' },
-                    { id: 'red', label: 'Visible Red', wave: '665 nm', color: 'border-red-500 hover:bg-red-950 text-red-300', desc: 'Senses suspended sediment concentration. Differentiates muddy river water from organic lakes.' },
-                    { id: 'rededge', label: 'Red Edge', wave: '705 nm', color: 'border-pink-500 hover:bg-pink-950 text-pink-300', desc: 'Measures emergent riparian canopy stress. Calibrated on Sentinel-2 and Sentera 6X drone sensors.' },
-                    { id: 'nir', label: 'Near-Infrared (NIR)', wave: '842 nm', color: 'border-purple-500 hover:bg-purple-950 text-purple-300', desc: 'Strong water absorption. Absolute zero water return creates the perfect shoreline mask.' },
-                    { id: 'sar', label: 'SAR (C-Band)', wave: 'Microwave', color: 'border-cyan-400 hover:bg-cyan-950 text-cyan-200', desc: 'Unveils surface roughness and winds. Penetrates storm clouds and forest canopy for flood mapping.' }
-                  ].map((band) => (
-                    <button
-                      key={band.id}
-                      onClick={() => setSimulatedBand(band.id)}
-                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                        simulatedBand === band.id
-                          ? 'bg-blue-950 border-cyan-400 text-white shadow-md shadow-cyan-950/40 ring-1 ring-cyan-500/30'
-                          : 'bg-blue-950/20 ' + band.color
-                      }`}
-                    >
-                      <p className="font-bold text-xs uppercase tracking-tight">{band.label}</p>
-                      <p className="font-mono text-[9px] opacity-70 mt-0.5">{band.wave}</p>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Simulator Visual details */}
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 bg-blue-950/30 p-5 rounded-xl border border-blue-900/30 items-center">
-                  <div className="md:col-span-7 space-y-3">
-                    <div className="flex items-center space-x-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
-                      <h4 className="font-bold text-sm text-cyan-300 uppercase tracking-wider">
-                        {simulatedBand === 'blue' && 'Coastal Blue Channel (443nm) Hydro-Simulation'}
-                        {simulatedBand === 'green' && 'Spectral Green Channel (560nm) Eutrophication Tracking'}
-                        {simulatedBand === 'red' && 'Visible Red Channel (665nm) Suspended Solid profiling'}
-                        {simulatedBand === 'rededge' && 'Red Edge Channel (705nm) Riparian Stress indices'}
-                        {simulatedBand === 'nir' && 'Near-Infrared Channel (842nm) Automated Shoreline Extractor'}
-                        {simulatedBand === 'sar' && 'SAR C-Band Microwave (Active radar) Surface Roughness Delineation'}
-                      </h4>
-                    </div>
-                    <p className="text-xs text-blue-100 leading-relaxed max-w-2xl font-medium">
-                      {simulatedBand === 'blue' && 'By utilizing deep light penetration of blue wavelengths, our inversion models calculate bathymetry near shallow sandbars on the Mobile River. Essential for navigating and surveying ADCP launch sites.'}
-                      {simulatedBand === 'green' && 'Green reflectance values detect algae chlorophyll peaks. This is the foundation of our SERVIR East Africa and Great Lakes models, enabling automated early warning services for eutrophic freshwaters.'}
-                      {simulatedBand === 'red' && 'Red band backscatter tracks inorganic sediment loading and river runoff. It correlates perfectly with our in-situ sensor logs, showing turbidity peaks during high-discharge spring flows.'}
-                      {simulatedBand === 'rededge' && 'The narrow Red Edge region senses chlorophyll changes in reeds and floodplain maples, tracking seasonal inundation stress and micro-climatic impacts across Alabama wetlands.'}
-                      {simulatedBand === 'nir' && 'Water absorbs NIR light completely, appearing as absolute pitch-black in optical images while soils/forests reflect highly. This high contrast provides the ideal dataset to segment river reaches using our SAM2 AI model.'}
-                      {simulatedBand === 'sar' && 'Active SAR sensors emit microwave beams and capture the return signal. Flat water behaves like a mirror, reflecting signals away (appearing dark), while wind-rippled water or flooded forests create strong double-bounce backscatter.'}
-                    </p>
-
-                    {/* Spectral Reflection Metric visual representation */}
-                    <div className="pt-2 grid grid-cols-3 gap-3">
-                      <div className="bg-[#031525] p-3 rounded-lg border border-blue-900/50">
-                        <span className="text-[9px] font-bold text-gray-400 uppercase">Water Reflectance</span>
-                        <p className="text-sm font-black text-white mt-1">
-                          {simulatedBand === 'blue' && '28.4%'}
-                          {simulatedBand === 'green' && '35.1%'}
-                          {simulatedBand === 'red' && '12.8%'}
-                          {simulatedBand === 'rededge' && '5.2%'}
-                          {simulatedBand === 'nir' && '0.1% (Near-Zero)'}
-                          {simulatedBand === 'sar' && 'N/A (Active Backscatter)'}
-                        </p>
-                      </div>
-                      <div className="bg-[#031525] p-3 rounded-lg border border-blue-900/50">
-                        <span className="text-[9px] font-bold text-gray-400 uppercase">Water Penetration</span>
-                        <p className="text-sm font-black text-white mt-1">
-                          {simulatedBand === 'blue' && 'Up to 15m'}
-                          {simulatedBand === 'green' && 'Up to 6m'}
-                          {simulatedBand === 'red' && 'Up to 1.5m'}
-                          {simulatedBand === 'rededge' && '0.2m'}
-                          {simulatedBand === 'nir' && 'Absorbed (0m)'}
-                          {simulatedBand === 'sar' && 'Surface only (0m)'}
-                        </p>
-                      </div>
-                      <div className="bg-[#031525] p-3 rounded-lg border border-blue-900/50">
-                        <span className="text-[9px] font-bold text-gray-400 uppercase">Best Water Index</span>
-                        <p className="text-sm font-black text-white mt-1">
-                          {simulatedBand === 'blue' && 'NDBDI'}
-                          {simulatedBand === 'green' && 'NDWI (McFeeters)'}
-                          {simulatedBand === 'red' && 'TSS Index'}
-                          {simulatedBand === 'rededge' && 'NDVI / EVI'}
-                          {simulatedBand === 'nir' && 'MNDWI (Xu)'}
-                          {simulatedBand === 'sar' && 'Flood Mask Ratio'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right side: Dynamic Water Index visualizer graph */}
-                  <div className="md:col-span-5 bg-[#031525] p-4 rounded-xl border border-blue-900/50 relative overflow-hidden h-44 flex flex-col justify-between">
-                    <div className="flex justify-between items-center z-10">
-                      <span className="text-[9px] font-bold text-cyan-400 uppercase tracking-wider">Spectral Response Curve</span>
-                      <span className="text-[9px] font-mono text-gray-400 font-semibold">Mobile River Basin</span>
-                    </div>
-
-                    {/* Chart columns mimicking reflection response */}
-                    <div className="flex items-end justify-between h-24 pt-4 px-2 space-x-1 z-10 select-none">
-                      {[
-                        { b: 'Blue', val: simulatedBand === 'blue' ? 'h-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'h-3/5 bg-blue-500/20' },
-                        { b: 'Green', val: simulatedBand === 'green' ? 'h-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'h-4/5 bg-emerald-500/20' },
-                        { b: 'Red', val: simulatedBand === 'red' ? 'h-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]' : 'h-2/5 bg-red-500/20' },
-                        { b: 'Red Edge', val: simulatedBand === 'rededge' ? 'h-full bg-pink-500 shadow-[0_0_8px_rgba(236,72,153,0.5)]' : 'h-1/5 bg-pink-500/20' },
-                        { b: 'NIR', val: simulatedBand === 'nir' ? 'h-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)]' : 'h-1 bg-purple-500/20' },
-                        { b: 'SWIR', val: 'h-[2px] bg-sky-300/20' }
-                      ].map((bar, idx) => (
-                        <div key={idx} className="flex-1 flex flex-col items-center">
-                          <div className={`w-full rounded-t transition-all duration-500 ${bar.val}`}></div>
-                          <span className="text-[8px] text-gray-500 font-mono mt-1 font-bold">{bar.b}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="text-[9px] text-cyan-100 font-semibold italic z-10 flex items-center justify-center space-x-1 bg-blue-950/40 py-1.5 rounded">
-                      <span>Reflectance Index is optimized for mapping <strong className="text-cyan-300">{
-                        simulatedBand === 'blue' ? 'water bathymetry' : 
-                        simulatedBand === 'green' ? 'chlorophyll blooms' : 
-                        simulatedBand === 'red' ? 'river suspended silt' : 
-                        simulatedBand === 'rededge' ? 'wetland foliage' : 
-                        simulatedBand === 'nir' ? 'sharp land-water borders' : 'surface winds & flooding'
-                      }</strong></span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* NEW: Fluvial Remote Sensing Observational Stations & Indices Dashboard */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-150 p-6 md:p-8 text-left space-y-6">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-100 pb-5">
-                <div>
-                  <span className="text-blue-600 font-extrabold text-[10px] uppercase tracking-wider bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
-                    📡 Fluvial Observatory & Telemetry Portal
-                  </span>
-                  <h3 className="text-lg md:text-2xl font-black mt-2 text-slate-900 tracking-tight flex items-center gap-2">
-                    <span>Fluvial Observational Stations & Satellite Overpasses</span>
-                  </h3>
-                  <p className="text-xs text-gray-500 mt-1 max-w-2xl font-medium">
-                    Coupling in-situ USGS river flow telemetry with remote-sensed spectral indices (NDWI, Turbidity, Surface Temperature) across Alabama river systems.
-                  </p>
-                </div>
-                
-                {/* Scan Button */}
-                <button
-                  onClick={() => {
-                    setIsScanning(true);
-                    setTimeout(() => {
-                      setIsScanning(false);
-                      const now = new Date();
-                      setScanTimestamp(`${now.getUTCFullYear()}-${String(now.getUTCMonth()+1).padStart(2,'0')}-${String(now.getUTCDate()).padStart(2,'0')} ${String(now.getUTCHours()).padStart(2,'0')}:${String(now.getUTCMinutes()).padStart(2,'0')} UTC`);
-                    }, 1500);
-                  }}
-                  disabled={isScanning}
-                  className="bg-[#9E1B32] hover:bg-blue-900 disabled:bg-blue-350 text-white font-bold text-xs py-2 px-4 rounded-lg shadow-md transition-all flex items-center space-x-2 shrink-0 cursor-pointer select-none"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isScanning ? 'animate-spin' : ''}`} />
-                  <span>{isScanning ? 'Acquiring Swath Telemetry...' : 'Trigger Sentinel-2 Satellite Scan'}</span>
-                </button>
-              </div>
-
-              {/* Station Selectors */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {[
-                  { id: 'northport', name: 'Black Warrior River', code: 'USGS 02465000', location: 'Northport, AL (0.8 mi to campus)', color: 'border-l-blue-500' },
-                  { id: 'bucks', name: 'Mobile River Outlet', code: 'USGS 02471001', location: 'Bucks, AL (Delta sediment flow)', color: 'border-l-cyan-500' },
-                  { id: 'montgomery', name: 'Alabama River Basin', code: 'USGS 02428400', location: 'Montgomery, AL (Middle corridor)', color: 'border-l-emerald-500' }
-                ].map(station => (
-                  <button
-                    key={station.id}
-                    onClick={() => setSelectedStation(station.id)}
-                    className={`p-4 rounded-xl border border-gray-150 text-left transition-all cursor-pointer flex flex-col justify-between hover:shadow-xs border-l-4 ${station.color} ${
-                      selectedStation === station.id 
-                        ? 'bg-blue-50/50 border-blue-400 ring-1 ring-blue-400/20 shadow-xs' 
-                        : 'bg-white hover:bg-slate-50'
-                    }`}
-                  >
-                    <div>
-                      <span className="text-[10px] font-mono text-gray-400 font-bold">{station.code}</span>
-                      <h4 className="font-extrabold text-slate-800 text-sm mt-0.5">{station.name}</h4>
-                    </div>
-                    <span className="text-[10px] text-gray-500 font-semibold mt-2">{station.location}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Bento Grid layout for Selected Station water telemetry */}
-              <div className="relative rounded-2xl overflow-hidden border border-blue-900/10 bg-slate-950 text-white p-5 md:p-6 shadow-md">
-                
-                {/* Sentinel-2 Scanning Line Overlay */}
-                {isScanning && (
-                  <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_15px_#22d3ee] animate-[bounce_1.5s_infinite] z-20"></div>
-                )}
-
-                {/* Subtle dark grid background */}
-                <div className="absolute inset-0 bg-radial-at-t from-blue-950/40 via-transparent to-transparent opacity-60"></div>
-
-                <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                  
-                  {/* Left Side: Station Header & Spatial details */}
-                  <div className="lg:col-span-4 space-y-4 text-left">
-                    <div>
-                      <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest font-mono">
-                        🛸 SENTINEL-2 / LANDSAT-9 COLLIMATED PASS
-                      </span>
-                      <h4 className="text-lg font-black mt-1 text-white">
-                        {selectedStation === 'northport' && 'Black Warrior River Station'}
-                        {selectedStation === 'bucks' && 'Mobile River Basin Outflow'}
-                        {selectedStation === 'montgomery' && 'Alabama River Basin Section'}
-                      </h4>
-                      <p className="text-[10px] text-gray-400 mt-1 font-mono">
-                        LAST SATELLITE PASS SWATH: <span className="text-cyan-300 font-semibold">{scanTimestamp}</span>
-                      </p>
-                    </div>
-
-                    <div className="bg-blue-950/40 border border-blue-900/35 p-3 rounded-xl space-y-2 text-xs">
-                      <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Spatial Observation Index</p>
-                      <p className="text-slate-200 text-[11px] leading-relaxed">
-                        {selectedStation === 'northport' && 'In-situ ADCP models confirm high water clarity. Multi-spectral reflectance correlates with low suspended organic silt. Highly suitable for river bank LiDAR calibration.'}
-                        {selectedStation === 'bucks' && 'Estuary delta registers massive backscatter plumes from upstream geomorphic drainage. Strong suspended sediment concentrations with visible sediment transport gradients.'}
-                        {selectedStation === 'montgomery' && 'River corridor is classified with moderate sediment loading. Seasonal wetland foliage surrounding the basin registers high vegetative NIR response.'}
-                      </p>
-                    </div>
-
-                    {/* Sensor Formula Accent Card */}
-                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-800 text-[10px] font-mono text-cyan-300 flex items-center space-x-2.5">
-                      <span className="bg-cyan-500/10 p-1.5 rounded text-xs">🧪</span>
-                      <div>
-                        <span className="text-gray-400 font-bold block uppercase text-[8px]">NDWI Remote Sensing Math</span>
-                        <code className="text-white">NDWI = (Green - NIR) / (Green + NIR)</code>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right Side: Remote Sensing Indices (2 cells) & In-Situ Metrics (2 cells) */}
-                  <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    
-                    {/* CARD 1: NDWI */}
-                    <div className="bg-blue-950/20 p-4 rounded-xl border border-blue-900/30 flex flex-col justify-between text-left h-28">
-                      <div className="flex justify-between items-start">
-                        <span className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest font-mono">Normalized Water Index</span>
-                        <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/25 px-1.5 py-0.2 rounded font-mono">NDWI</span>
-                      </div>
-                      <div className="mt-2">
-                        <span className="text-2xl font-black text-white">
-                          {selectedStation === 'northport' && '+0.58'}
-                          {selectedStation === 'bucks' && '+0.41'}
-                          {selectedStation === 'montgomery' && '+0.51'}
-                        </span>
-                        <p className="text-[10px] text-slate-300 mt-1 leading-none font-medium">
-                          {selectedStation === 'northport' && 'High surface water absorption contrast'}
-                          {selectedStation === 'bucks' && 'Turbid delta mixture boundaries detected'}
-                          {selectedStation === 'montgomery' && 'Clear shoreline demarcation grid'}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* CARD 2: Turbidity Index */}
-                    <div className="bg-blue-950/20 p-4 rounded-xl border border-blue-900/30 flex flex-col justify-between text-left h-28">
-                      <div className="flex justify-between items-start">
-                        <span className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest font-mono">Turbidity Reflectance</span>
-                        <span className="text-[10px] font-bold text-sky-400 bg-sky-500/15 border border-sky-500/25 px-1.5 py-0.2 rounded font-mono">TSS / Silt</span>
-                      </div>
-                      <div className="mt-2">
-                        <span className="text-2xl font-black text-white">
-                          {selectedStation === 'northport' && '8.4 NTU'}
-                          {selectedStation === 'bucks' && '45.2 NTU'}
-                          {selectedStation === 'montgomery' && '19.1 NTU'}
-                        </span>
-                        <p className="text-[10px] text-slate-300 mt-1 leading-none font-medium">
-                          {selectedStation === 'northport' && 'Optimal clear bottom calibration'}
-                          {selectedStation === 'bucks' && 'Heavy suspended mud & active runoff'}
-                          {selectedStation === 'montgomery' && 'Moderate seasonal sediment load'}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* CARD 3: USGS Flow Rate */}
-                    <div className="bg-[#04121d]/80 p-4 rounded-xl border border-blue-950/50 flex flex-col justify-between text-left h-28">
-                      <div className="flex justify-between items-start">
-                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest font-mono">USGS ADCP Discharge</span>
-                        <span className="text-[9px] font-bold text-gray-400 bg-slate-800 border border-slate-700 px-1.5 py-0.2 rounded font-mono">Q-FLOW</span>
-                      </div>
-                      <div className="mt-2">
-                        <span className="text-2xl font-black text-[#9E1B32]">
-                          {selectedStation === 'northport' && '3,120 cfs'}
-                          {selectedStation === 'bucks' && '14,840 cfs'}
-                          {selectedStation === 'montgomery' && '7,450 cfs'}
-                        </span>
-                        <p className="text-[10px] text-slate-300 mt-1 leading-none font-medium">
-                          {selectedStation === 'northport' && 'Gauge Height: 5.42 ft (Steady)'}
-                          {selectedStation === 'bucks' && 'Gauge Height: 11.85 ft (Flooding margin)'}
-                          {selectedStation === 'montgomery' && 'Gauge Height: 8.10 ft (Normal)'}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* CARD 4: Thermal SST */}
-                    <div className="bg-[#04121d]/80 p-4 rounded-xl border border-blue-950/50 flex flex-col justify-between text-left h-28">
-                      <div className="flex justify-between items-start">
-                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest font-mono">Thermal Infrared Temperature</span>
-                        <span className="text-[9px] font-bold text-red-400 bg-red-500/15 border border-red-500/25 px-1.5 py-0.2 rounded font-mono">L9-TIR</span>
-                      </div>
-                      <div className="mt-2">
-                        <span className="text-2xl font-black text-cyan-200">
-                          {selectedStation === 'northport' && '22.5 °C'}
-                          {selectedStation === 'bucks' && '24.1 °C'}
-                          {selectedStation === 'montgomery' && '23.2 °C'}
-                        </span>
-                        <p className="text-[10px] text-slate-300 mt-1 leading-none font-medium">
-                          {selectedStation === 'northport' && 'Sub-pixel accuracy ±0.15 °C'}
-                          {selectedStation === 'bucks' && 'Delta thermal plumes detected'}
-                          {selectedStation === 'montgomery' && 'Main channel stream temperature'}
-                        </p>
-                      </div>
-                    </div>
-
-                  </div>
-                </div>
-              </div>
-            </div>
-
           </div>
         )}
 
@@ -1594,6 +1236,11 @@ export default function App() {
             )}
 
           </div>
+        )}
+
+        {/* VIEW: PROFESSIONAL DEVELOPMENT */}
+        {activeTab === 'professional' && (
+          <ProfessionalDevelopment />
         )}
 
         {/* VIEW 4: SOFTWARE & MODELS */}

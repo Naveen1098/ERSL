@@ -12,9 +12,9 @@ In GitHub: repo **Settings -> Secrets and variables -> Actions -> Variables tab 
 
 | Name | Value |
 |---|---|
-| `VITE_SUPABASE_URL` | Project URL |
-| `VITE_SUPABASE_ANON_KEY` | anon public key |
-| `SCHOLAR_ID` | the `user=` value of your Google Scholar URL |
+| `VITE_SUPABASE_URL` | https://qulkwrhajibaddvgjaht.supabase.co |
+| `VITE_SUPABASE_ANON_KEY` | sb_publishable_AVEbmVPu3rFKrpD7IFVc2Q_Cn4tWdc6 |
+| `SCHOLAR_ID` | the `user=` GN_fGecAAAAJ |
 
 For local testing copy `.env.example` to `.env` and fill the same two values.
 

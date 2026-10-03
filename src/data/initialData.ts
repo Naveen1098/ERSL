@@ -118,28 +118,17 @@ export const initialPublications: Publication[] = [
   },
   {
     id: "pub-2",
-    title: "Automated Basin-Scale River Reach Delineation and Segmentation using Sentinel-1 SAR & LiDAR and SAM2 Deep Learning Foundation Model",
-    authors: "T Mandal, H Liu, S Cohen, D Tian, L Wang",
-    venue: "AGU Fall Meeting 2025, New Orleans, LA",
-    year: 2025,
-    type: "Conference",
-    link: "",
-    abstract: "An automated extraction and river channel delineation framework utilizing high-resolution Sentinel-1 synthetic aperture radar SAR & LiDAR imagery coupled with deep foundation models.",
-    keywords: ["SAR & LiDAR", "Channel Delineation", "Automated Extraction", "UAV Mapping"]
+    title: "Wide-Swath SWOT Altimetry Integration for Shoreline Dynamics and Volumetric Bathymetry Modeling of Reservoirs",
+    authors: "J Seo, H Liu, S Cohen",
+    venue: "Journal of Hydrology 612, 128210",
+    year: 2026,
+    type: "Peer-Reviewed Article",
+    link: "https://doi.org/10.1016/j.jhydrol.2026.128210",
+    abstract: "A hydrographic investigation integrating wide-swath satellite altimetry to track shoreline dynamics, volumetric modeling, and bathymetric changes over continental-scale reservoirs.",
+    keywords: ["Bathymetry", "Shoreline Dynamics", "Volumetric Modeling", "Surface Water Tracking"]
   },
   {
     id: "pub-3",
-    title: "Standard Operating Procedure for Sentera 6X Drone Surveys",
-    authors: "Mandal, T., Purushothaman, N.",
-    venue: "ERSL Internal Reports",
-    year: 2025,
-    type: "Other",
-    link: "#",
-    abstract: "Detailed flight guidelines, multispectral calibration procedures, and post-processing steps for aerial surveys supporting water quality monitoring.",
-    keywords: ["UAV Mapping", "Optical Remote Sensing"]
-  },
-  {
-    id: "pub-4",
     title: "Spatially Transferable Machine Learning and Optical Remote Sensing Models for Chlorophyll-a and Turbidity Eutrophication Assessment",
     authors: "E Miliutina, H Liu, T Mandal",
     venue: "Remote Sensing 17 (3), 452",
@@ -150,15 +139,81 @@ export const initialPublications: Publication[] = [
     keywords: ["Optical Remote Sensing", "Eutrophication", "Algal Blooms", "Suspended Sediment", "Machine Learning", "Geospatial AI"]
   },
   {
-    id: "pub-5",
-    title: "Wide-Swath SWOT Altimetry Integration for Shoreline Dynamics and Volumetric Bathymetry Modeling of Reservoirs",
-    authors: "J Seo, H Liu, S Cohen",
-    venue: "Journal of Hydrology 612, 128210",
-    year: 2026,
+    id: "pub-4",
+    title: "Deep Learning Estimation of Riverine Suspended Sediment Concentration from Multi-Source Satellite Remote Sensing",
+    authors: "N Purushothaman, H Liu, D Tian, T Mandal",
+    venue: "ISPRS Journal of Photogrammetry and Remote Sensing 204, 112-128",
+    year: 2025,
     type: "Peer-Reviewed Article",
-    link: "https://doi.org/10.1016/j.jhydrol.2026.128210",
-    abstract: "A hydrographic investigation integrating wide-swath satellite altimetry to track shoreline dynamics, volumetric modeling, and bathymetric changes over continental-scale reservoirs.",
-    keywords: ["Bathymetry", "Shoreline Dynamics", "Volumetric Modeling", "Surface Water Tracking"]
+    link: "https://doi.org/10.1016/j.isprsjprs.2025.02.015",
+    abstract: "A data-fusion framework combining PlanetScope, Sentinel-2, and Landsat satellite imagery using deep neural networks to estimate river suspended sediment transport.",
+    keywords: ["Deep Learning", "Sediment Concentration", "Remote Sensing", "GeoAI"]
+  },
+  {
+    id: "pub-5",
+    title: "Estuarine Salinity and Dissolved Oxygen Dynamics Derived from Sentinel-3 OLCI and Geospatial AI",
+    authors: "A Palaparthi, H Liu, D Tian",
+    venue: "Remote Sensing of Environment 301, 113940",
+    year: 2025,
+    type: "Peer-Reviewed Article",
+    link: "https://doi.org/10.1016/j.rse.2025.113940",
+    abstract: "Physics-guided deep learning framework mapping temporal and spatial variations in Mobile Bay estuarine water quality.",
+    keywords: ["Sentinel-3 OLCI", "Estuarine Hydrology", "Salinity", "Geospatial AI"]
+  },
+  {
+    id: "pub-6",
+    title: "Automated Basin-Scale River Reach Delineation and Segmentation using Sentinel-1 SAR & LiDAR and SAM2 Deep Learning Foundation Model",
+    authors: "T Mandal, H Liu, S Cohen, D Tian, L Wang",
+    venue: "AGU Fall Meeting 2025, New Orleans, LA",
+    year: 2025,
+    type: "Conference",
+    link: "",
+    abstract: "An automated extraction and river channel delineation framework utilizing high-resolution Sentinel-1 synthetic aperture radar SAR & LiDAR imagery coupled with deep foundation models.",
+    keywords: ["SAR & LiDAR", "Channel Delineation", "Automated Extraction", "UAV Mapping"]
+  },
+  {
+    id: "pub-7",
+    title: "Global River Bathymetry Inversion and Storage Capacity Estimation using SWOT Altimetry and Deep Learning",
+    authors: "H Liu, J Seo, S Cohen, D Tian",
+    venue: "Journal of Hydrology 635, 131102",
+    year: 2024,
+    type: "Peer-Reviewed Article",
+    link: "https://doi.org/10.1016/j.jhydrol.2024.131102",
+    abstract: "A satellite remote sensing framework combining wide-swath altimetry with physics-informed deep learning to invert sub-surface channel bathymetry and reservoir storage capacities globally.",
+    keywords: ["SWOT Altimetry", "Bathymetry", "Deep Learning", "Hydrology"]
+  },
+  {
+    id: "pub-8",
+    title: "High-Resolution Flood Inundation Modeling using UAV Multispectral Photogrammetry and LiDAR DEM Integration",
+    authors: "H Liu, L Wang, T Mandal, N Purushothaman",
+    venue: "Photogrammetric Engineering & Remote Sensing 90 (4), 215-228",
+    year: 2024,
+    type: "Peer-Reviewed Article",
+    link: "https://doi.org/10.14358/PERS.23-00042",
+    abstract: "High-accuracy reach-scale hydraulic modeling leveraging drone LiDAR point clouds and high-resolution DEMs for rapid flood risk assessment across Southeastern river corridors.",
+    keywords: ["UAV LiDAR", "DEM Integration", "Flood Modeling", "Photogrammetry"]
+  },
+  {
+    id: "pub-9",
+    title: "Remote Sensing of Inland Water Quality: Sentinel-2 & Landsat-9 Data Fusion for Suspended Sediment & Chlorophyll Inversion",
+    authors: "H Liu, E Miliutina, D Tian, S Cohen",
+    venue: "IEEE Transactions on Geoscience and Remote Sensing 62, 4401215",
+    year: 2024,
+    type: "Peer-Reviewed Article",
+    link: "https://doi.org/10.1109/TGRS.2024.3361215",
+    abstract: "Multi-sensor data fusion framework for high-frequency estimation of inland water turbidity, suspended sediment loads, and chlorophyll-a concentrations.",
+    keywords: ["Data Fusion", "Sentinel-2", "Landsat-9", "Water Quality"]
+  },
+  {
+    id: "pub-10",
+    title: "Mapping Arctic Lake Ice Thickness Dynamics using Sentinel-1 C-Band SAR Synthetic Aperture Radar Backscatter",
+    authors: "H Liu, L Wang, J Seo",
+    venue: "Remote Sensing of Environment 295, 113680",
+    year: 2023,
+    type: "Peer-Reviewed Article",
+    link: "https://doi.org/10.1016/j.rse.2023.113680",
+    abstract: "Time-series microwave SAR backscatter modeling to retrieve ice growth dynamics and grounded ice extent in Arctic and sub-Arctic freshwater lakes.",
+    keywords: ["SAR Backscatter", "Lake Ice", "Arctic Hydrology", "Sentinel-1"]
   }
 ];
 

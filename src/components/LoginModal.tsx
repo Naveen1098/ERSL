@@ -70,14 +70,21 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
 
   const reset = async () => {
     if (!supabase || !email) {
-      setError('Enter your email first, then click "Forgot password".');
+      setError('Please enter your registered email address first, then click "Forgot password".');
       return;
     }
+    setBusy(true);
+    setError('');
+    setInfo('');
     const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: window.location.origin + window.location.pathname,
     });
-    if (err) setError(err.message);
-    else setInfo('Password reset email sent.');
+    setBusy(false);
+    if (err) {
+      setError(`Password reset error: ${err.message}. If email delivery is restricted, please contact lab administrator Dr. Hongxing Liu (hongxing.liu@ua.edu) to reset your account.`);
+    } else {
+      setInfo('Password reset instructions sent! Please check your Inbox and Spam/Junk folder. If your university firewall blocks automated emails, Dr. Hongxing Liu can also grant direct access from the Admin Control Panel.');
+    }
   };
 
   return (
