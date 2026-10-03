@@ -65,15 +65,7 @@ const resolveImagePath = (
 };
 
 const isMockPublication = (p: Publication): boolean => 
-  !p ||
-  p.id === 'pub-0' ||
-  p.title.includes('DeepSAR Flood Mapper') || 
-  p.title.includes('RS‐FloodXDepth') || 
-  p.title.includes('RS-FloodXDepth') ||
-  p.title.includes('Estuarine Salinity and Dissolved Oxygen') ||
-  p.title.includes('Toward robust evaluations of flood inundation') ||
-  p.title.includes('Wide-Swath SWOT Altimetry Integration') ||
-  p.title.includes('Deep Learning Estimation of Riverine Suspended Sediment Concentration');
+  !p || p.id === 'pub-0';
 
 const reconstructAbstract = (invertedIndex?: Record<string, number[]> | null): string => {
   if (!invertedIndex || typeof invertedIndex !== 'object') return '';
@@ -141,16 +133,17 @@ export default function App() {
   });
 
   const [publications, setPublications] = useState<Publication[]>(() => {
-    const saved = localStorage.getItem('ersl_publications');
-    if (saved !== null) {
-      try {
+    try {
+      const saved = localStorage.getItem('ersl_publications');
+      if (saved) {
         const savedList: Publication[] = JSON.parse(saved);
-        return savedList.filter(p => !isMockPublication(p));
-      } catch {
-        return [];
+        if (Array.isArray(savedList) && savedList.length > 0) {
+          const clean = savedList.filter(p => !isMockPublication(p));
+          if (clean.length > 0) return clean;
+        }
       }
-    }
-    return [];
+    } catch {}
+    return initialPublications;
   });
 
   // Automatically persist any publications update to local storage
@@ -191,7 +184,8 @@ export default function App() {
       if (!saved) return initialPeople;
       const parsed = JSON.parse(saved);
       if (!Array.isArray(parsed) || parsed.length === 0) return initialPeople;
-      const validSaved = parsed.filter(p => p && p.id && p.name && (p.bio || p.researchFocus));
+      const validSaved = parsed.filter(p => p && p.id && p.name);
+      if (validSaved.length === 0) return initialPeople;
       const known = new Set(validSaved.map(p => p.id));
       return [...validSaved, ...initialPeople.filter(p => !known.has(p.id))];
     } catch {
@@ -551,7 +545,7 @@ export default function App() {
     }
     supabase?.auth.signOut();
     setCurrentUser(null);
-    setActiveTab('home');
+    setActiveTab(prev => (prev === 'workplan' || prev === 'admin' || prev === 'box') ? 'home' : prev);
   };
 
   // Role modification inside Admin Panel (syncs with Active Directory)
@@ -590,65 +584,51 @@ export default function App() {
 
     if (modalType === 'publication') {
       setPublications(prev => {
-        if (isEdit) {
-          return prev.map(p => p.id === savedItem.id ? savedItem : p);
-        } else {
-          return [savedItem, ...prev];
-        }
+        const updated = isEdit ? prev.map(p => p.id === savedItem.id ? savedItem : p) : [savedItem, ...prev];
+        try { localStorage.setItem('ersl_publications', JSON.stringify(updated)); } catch {}
+        return updated;
       });
       appendAuditLog(isEdit ? 'UPDATE_PUBLICATION' : 'ADD_PUBLICATION', savedItem.title);
     } else if (modalType === 'data-layer') {
       setDataLayers(prev => {
-        if (isEdit) {
-          return prev.map(d => d.id === savedItem.id ? savedItem : d);
-        } else {
-          return [savedItem, ...prev];
-        }
+        const updated = isEdit ? prev.map(d => d.id === savedItem.id ? savedItem : d) : [savedItem, ...prev];
+        try { localStorage.setItem('ersl_datalayers', JSON.stringify(updated)); } catch {}
+        return updated;
       });
       appendAuditLog(isEdit ? 'UPDATE_DATALAYER' : 'ADD_DATALAYER', savedItem.name);
     } else if (modalType === 'research-theme') {
       setThemes(prev => {
-        if (isEdit) {
-          return prev.map(t => t.id === savedItem.id ? savedItem : t);
-        } else {
-          return [...prev, savedItem];
-        }
+        const updated = isEdit ? prev.map(t => t.id === savedItem.id ? savedItem : t) : [...prev, savedItem];
+        try { localStorage.setItem('ersl_themes', JSON.stringify(updated)); } catch {}
+        return updated;
       });
       appendAuditLog(isEdit ? 'UPDATE_RESEARCH_THEME' : 'ADD_RESEARCH_THEME', savedItem.title);
     } else if (modalType === 'instrument') {
       setInstruments(prev => {
-        if (isEdit) {
-          return prev.map(i => i.id === savedItem.id ? savedItem : i);
-        } else {
-          return [...prev, savedItem];
-        }
+        const updated = isEdit ? prev.map(i => i.id === savedItem.id ? savedItem : i) : [...prev, savedItem];
+        try { localStorage.setItem('ersl_instruments', JSON.stringify(updated)); } catch {}
+        return updated;
       });
       appendAuditLog(isEdit ? 'UPDATE_INSTRUMENT' : 'ADD_INSTRUMENT', savedItem.name);
     } else if (modalType === 'person') {
       setPeople(prev => {
-        if (isEdit) {
-          return prev.map(p => p.id === savedItem.id ? savedItem : p);
-        } else {
-          return [...prev, savedItem];
-        }
+        const updated = isEdit ? prev.map(p => p.id === savedItem.id ? savedItem : p) : [...prev, savedItem];
+        try { localStorage.setItem('ersl_people', JSON.stringify(updated)); } catch {}
+        return updated;
       });
       appendAuditLog(isEdit ? 'UPDATE_PEOPLE_ROSTER' : 'ADD_PEOPLE_ROSTER', savedItem.name);
     } else if (modalType === 'software') {
       setSoftwareList(prev => {
-        if (isEdit) {
-          return prev.map(s => s.id === savedItem.id ? savedItem : s);
-        } else {
-          return [savedItem, ...prev];
-        }
+        const updated = isEdit ? prev.map(s => s.id === savedItem.id ? savedItem : s) : [savedItem, ...prev];
+        try { localStorage.setItem('ersl_software', JSON.stringify(updated)); } catch {}
+        return updated;
       });
       appendAuditLog(isEdit ? 'UPDATE_SOFTWARE' : 'ADD_SOFTWARE', savedItem.title);
     } else if (modalType === 'teaching') {
       setTeachingList(prev => {
-        if (isEdit) {
-          return prev.map(t => t.id === savedItem.id ? savedItem : t);
-        } else {
-          return [savedItem, ...prev];
-        }
+        const updated = isEdit ? prev.map(t => t.id === savedItem.id ? savedItem : t) : [savedItem, ...prev];
+        try { localStorage.setItem('ersl_teaching', JSON.stringify(updated)); } catch {}
+        return updated;
       });
       appendAuditLog(isEdit ? 'UPDATE_TEACHING_MATERIAL' : 'ADD_TEACHING_MATERIAL', savedItem.title);
     }
@@ -664,25 +644,53 @@ export default function App() {
     }
 
     if (itemType === 'publication') {
-      setPublications(prev => prev.filter(p => p.id !== id));
+      setPublications(prev => {
+        const updated = prev.filter(p => p.id !== id);
+        try { localStorage.setItem('ersl_publications', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
       appendAuditLog('DELETE_PUBLICATION', displayName);
     } else if (itemType === 'data-layer') {
-      setDataLayers(prev => prev.filter(d => d.id !== id));
+      setDataLayers(prev => {
+        const updated = prev.filter(d => d.id !== id);
+        try { localStorage.setItem('ersl_datalayers', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
       appendAuditLog('DELETE_DATALAYER', displayName);
     } else if (itemType === 'research-theme') {
-      setThemes(prev => prev.filter(t => t.id !== id));
+      setThemes(prev => {
+        const updated = prev.filter(t => t.id !== id);
+        try { localStorage.setItem('ersl_themes', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
       appendAuditLog('DELETE_RESEARCH_THEME', displayName);
     } else if (itemType === 'instrument') {
-      setInstruments(prev => prev.filter(i => i.id !== id));
+      setInstruments(prev => {
+        const updated = prev.filter(i => i.id !== id);
+        try { localStorage.setItem('ersl_instruments', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
       appendAuditLog('DELETE_INSTRUMENT', displayName);
     } else if (itemType === 'person') {
-      setPeople(prev => prev.filter(p => p.id !== id));
+      setPeople(prev => {
+        const updated = prev.filter(p => p.id !== id);
+        try { localStorage.setItem('ersl_people', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
       appendAuditLog('DELETE_PEOPLE_ROSTER', displayName);
     } else if (itemType === 'software') {
-      setSoftwareList(prev => prev.filter(s => s.id !== id));
+      setSoftwareList(prev => {
+        const updated = prev.filter(s => s.id !== id);
+        try { localStorage.setItem('ersl_software', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
       appendAuditLog('DELETE_SOFTWARE', displayName);
     } else if (itemType === 'teaching') {
-      setTeachingList(prev => prev.filter(t => t.id !== id));
+      setTeachingList(prev => {
+        const updated = prev.filter(t => t.id !== id);
+        try { localStorage.setItem('ersl_teaching', JSON.stringify(updated)); } catch {}
+        return updated;
+      });
       appendAuditLog('DELETE_TEACHING_MATERIAL', displayName);
     }
   };

@@ -286,7 +286,7 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         setPeople(finalMerged);
         setAliasMap({ ...aliases });
         try {
-          localStorage.setItem('ersl_people', JSON.stringify(finalMerged));
+          localStorage.setItem('ersl_workplan_profiles', JSON.stringify(finalMerged));
         } catch {}
       }
     } catch (err) {
@@ -365,17 +365,23 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     });
 
     if (supabase) {
-      try {
-        const { error: err } = await supabase.from('tasks').insert({
-          title: form.title,
-          description: form.description,
-          due_date: form.due_date || null,
-          owner_id: targetOwner,
-          created_by: currentUser.id,
-        });
-        if (err) setError(err.message);
-      } catch (err: any) {
-        console.warn('Task insert error:', err);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetOwner);
+      const uuidToUse = isUuid 
+        ? targetOwner 
+        : Object.keys(aliasMap).find(k => aliasMap[k] === targetOwner && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(k));
+      if (uuidToUse) {
+        try {
+          const { error: err } = await supabase.from('tasks').insert({
+            title: form.title,
+            description: form.description,
+            due_date: form.due_date || null,
+            owner_id: uuidToUse,
+            created_by: currentUser.id,
+          });
+          if (err) setError(err.message);
+        } catch (err: any) {
+          console.warn('Task insert error:', err);
+        }
       }
     }
 
