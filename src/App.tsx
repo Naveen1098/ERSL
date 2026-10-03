@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Plus, Edit2, Trash2, Calendar, FileText, Search, Download, ExternalLink, 
+  Plus, Edit, Edit2, Trash2, Calendar, FileText, Search, Download, ExternalLink, 
   Mail, Users, Award, ShieldAlert, GraduationCap, Check, HelpCircle, 
   FolderGit2, Lock, Eye, AlertCircle, FileCode, CheckCircle2, ChevronRight, Sliders, Play, Info,
   RefreshCw, X
@@ -1105,7 +1105,7 @@ export default function App() {
                                 className="p-1 text-slate-500 hover:text-[#9E1B32] hover:bg-red-50 rounded cursor-pointer transition-colors"
                                 title="Edit this announcement"
                               >
-                                <Edit className="w-3.5 h-3.5" />
+                                <Edit2 className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => handleDeleteNewsItem(n.id, n.title)}
