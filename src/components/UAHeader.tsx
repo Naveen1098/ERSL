@@ -10,14 +10,15 @@ interface UAHeaderProps {
   onAdminClick: () => void;
 }
 
-const getCleanInitials = (name: string): string => {
-  const parts = name.split(' ').filter(p => {
+const getCleanInitials = (name?: string): string => {
+  if (!name || typeof name !== 'string') return 'UA';
+  const parts = name.trim().split(/\s+/).filter(p => {
     const lower = p.toLowerCase().replace(/\./g, '');
     return !['dr', 'prof', 'professor', 'phd', 'candidate', 'postdoc', 'researcher'].includes(lower);
   });
-  if (parts.length === 0) return 'UA';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  if (parts.length === 0 || !parts[0]) return 'UA';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase() || 'UA';
+  return ((parts[0][0] || '') + (parts[parts.length - 1][0] || '')).toUpperCase() || 'UA';
 };
 
 export const UAHeader: React.FC<UAHeaderProps> = ({
@@ -202,11 +203,11 @@ export const UAHeader: React.FC<UAHeaderProps> = ({
                   className="flex items-center space-x-2 focus:outline-none py-1.5 px-3 rounded-full hover:bg-gray-50 border border-gray-200 transition-all cursor-pointer"
                 >
                   <div className="w-7 h-7 rounded-full bg-[#9E1B32] text-white flex items-center justify-center font-bold text-xs shadow-sm">
-                    {getCleanInitials(currentUser.name)}
+                    {getCleanInitials(currentUser.name || currentUser.email)}
                   </div>
                   <div className="text-left leading-none">
-                    <p className="text-xs font-bold text-gray-800">{currentUser.name}</p>
-                    <p className="text-[10px] font-medium text-gray-400 capitalize">{currentUser.role.toLowerCase()}</p>
+                    <p className="text-xs font-bold text-gray-800">{currentUser.name || currentUser.email || 'Member'}</p>
+                    <p className="text-[10px] font-medium text-gray-400 capitalize">{(currentUser.role || 'Member').toLowerCase()}</p>
                   </div>
                   <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
                 </button>
@@ -215,9 +216,9 @@ export const UAHeader: React.FC<UAHeaderProps> = ({
                   <div className="absolute right-0 mt-2 w-60 bg-white rounded-lg shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-3 duration-200">
                     <div className="px-4 py-2 border-b border-gray-50">
                       <p className="text-xs font-semibold text-gray-400">Signed in as</p>
-                      <p className="text-sm font-bold text-gray-800 truncate">{currentUser.email}</p>
+                      <p className="text-sm font-bold text-gray-800 truncate">{currentUser.email || 'Logged In'}</p>
                       <div className="mt-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-[#9E1B32] border border-red-100">
-                        🛡️ {currentUser.role} Account
+                        🛡️ {currentUser.role || 'Member'} Account
                       </div>
                     </div>
 
@@ -286,7 +287,7 @@ export const UAHeader: React.FC<UAHeaderProps> = ({
           <div className="flex lg:hidden items-center space-x-4">
             {currentUser && (
               <div className="w-8 h-8 rounded-full bg-[#9E1B32] text-white flex items-center justify-center font-bold text-xs">
-                {getCleanInitials(currentUser.name)}
+                {getCleanInitials(currentUser.name || currentUser.email)}
               </div>
             )}
             <button
@@ -340,9 +341,9 @@ export const UAHeader: React.FC<UAHeaderProps> = ({
             {currentUser ? (
               <div className="space-y-1">
                 <div className="px-3 py-1.5">
-                  <p className="text-xs font-bold text-gray-800">{currentUser.name}</p>
-                  <p className="text-[10px] text-gray-400 truncate">{currentUser.email}</p>
-                  <p className="text-[10px] font-bold text-[#9E1B32] uppercase mt-1">Role: {currentUser.role}</p>
+                  <p className="text-xs font-bold text-gray-800">{currentUser.name || currentUser.email || 'Member'}</p>
+                  <p className="text-[10px] text-gray-400 truncate">{currentUser.email || ''}</p>
+                  <p className="text-[10px] font-bold text-[#9E1B32] uppercase mt-1">Role: {currentUser.role || 'Member'}</p>
                 </div>
 
                 {currentUser.role === 'Admin' && (

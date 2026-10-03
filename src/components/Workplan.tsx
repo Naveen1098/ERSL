@@ -124,7 +124,7 @@ const getFileCategory = (att: CommentAttachment): {
 };
 
 export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
-  const isAdmin = currentUser.role === 'Admin';
+  const isAdmin = currentUser?.role === 'Admin';
   const [tasks, setTasks] = useState<Task[]>([]);
   const [people, setPeople] = useState<Profile[]>([]);
   const [comments, setComments] = useState<Record<string, Comment[]>>({});
@@ -133,7 +133,7 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
 
   // Filter: Admin can filter by member ('all' or specific ID), regular members are locked to their own ID
-  const [filterOwner, setFilterOwner] = useState<string>(isAdmin ? 'all' : currentUser.id);
+  const [filterOwner, setFilterOwner] = useState<string>(isAdmin ? 'all' : (currentUser?.id || ''));
 
   // Calendar month state
   const [currentMonthDate, setCurrentMonthDate] = useState(new Date());
@@ -152,7 +152,7 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     mailtoUrl: string;
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', due_date: '', owner_id: currentUser.id });
+  const [form, setForm] = useState({ title: '', description: '', due_date: '', owner_id: currentUser?.id || '' });
 
   // Track alias IDs (e.g. user-naveen, uuid, person-purushothaman) mapping to canonical Profile ID
   const [aliasMap, setAliasMap] = useState<Record<string, string>>({});
@@ -233,8 +233,8 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     };
 
     // Also link currentUser's ID and email to alias map
-    const curEmail = norm(currentUser.email);
-    if (curEmail && peopleByEmail.has(curEmail)) {
+    const curEmail = norm(currentUser?.email);
+    if (curEmail && peopleByEmail.has(curEmail) && currentUser?.id) {
       const canonical = peopleByEmail.get(curEmail)!;
       aliases[currentUser.id] = canonical.id;
     }
@@ -343,7 +343,7 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     setError('');
     setNotificationStatus('');
 
-    const targetOwner = isAdmin ? form.owner_id : currentUser.id;
+    const targetOwner = isAdmin ? form.owner_id : (currentUser?.id || form.owner_id);
     const assignedMember = people.find(p => p.id === targetOwner);
     const recipientEmail = assignedMember?.email || 'npurushothaman@ua.edu';
     const recipientName = assignedMember?.name || 'Lab Member';
@@ -376,7 +376,7 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             description: form.description,
             due_date: form.due_date || null,
             owner_id: uuidToUse,
-            created_by: currentUser.id,
+            created_by: currentUser?.id,
           });
           if (err) setError(err.message);
         } catch (err: any) {
@@ -543,11 +543,11 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
   // Role Scoping: Admin sees filtered selection (or all), members ONLY see their own tasks
   const visible = useMemo(() => {
     if (!isAdmin) {
-      const myEmail = (currentUser.email || '').trim().toLowerCase();
-      const myCanonicalId = aliasMap[currentUser.id] || currentUser.id;
+      const myEmail = (currentUser?.email || '').trim().toLowerCase();
+      const myCanonicalId = currentUser?.id ? (aliasMap[currentUser.id] || currentUser.id) : '';
       return tasks.filter(t => {
-        if (t.owner_id === currentUser.id || t.owner_id === myCanonicalId) return true;
-        if (aliasMap[t.owner_id] === myCanonicalId) return true;
+        if (currentUser?.id && (t.owner_id === currentUser.id || t.owner_id === myCanonicalId)) return true;
+        if (myCanonicalId && aliasMap[t.owner_id] === myCanonicalId) return true;
         const ownerPerson = people.find(p => p.id === t.owner_id || aliasMap[t.owner_id] === p.id);
         if (ownerPerson?.email && myEmail && ownerPerson.email.trim().toLowerCase() === myEmail) {
           return true;
@@ -571,7 +571,7 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
       }
       return false;
     });
-  }, [tasks, isAdmin, filterOwner, currentUser.id, currentUser.email, people, aliasMap]);
+  }, [tasks, isAdmin, filterOwner, currentUser?.id, currentUser?.email, people, aliasMap]);
 
   const alerts = useMemo(
     () => visible.filter(t => {

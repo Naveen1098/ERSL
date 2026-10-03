@@ -32,10 +32,15 @@ class ErrorBoundary extends Component<Props, State> {
               ⚠️
             </div>
             <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', marginBottom: '8px' }}>Application Refresh Required</h2>
-            <p style={{ fontSize: '13px', color: '#64748b', lineHeight: '1.5', marginBottom: '20px' }}>
-              The portal encountered a temporary caching state. Click below to refresh the page and reset cached data.
+            <p style={{ fontSize: '13px', color: '#64748b', lineHeight: '1.5', marginBottom: '16px' }}>
+              The portal encountered a temporary state. Click below to refresh the page or reset the session.
             </p>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+            {this.state.error && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px', marginBottom: '16px', fontSize: '11px', color: '#991b1b', textAlign: 'left', overflowX: 'auto', fontFamily: 'monospace', maxHeight: '120px' }}>
+                <strong>Error:</strong> {this.state.error.message}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
               <button
                 onClick={() => window.location.reload()}
                 style={{ padding: '10px 18px', fontSize: '12px', fontWeight: '700', color: 'white', background: '#9E1B32', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
@@ -44,12 +49,28 @@ class ErrorBoundary extends Component<Props, State> {
               </button>
               <button
                 onClick={() => {
-                  try { localStorage.clear(); } catch {}
+                  try {
+                    Object.keys(localStorage).forEach(k => {
+                      if (k.startsWith('sb-') || k.includes('auth') || k === 'ersl_user') {
+                        localStorage.removeItem(k);
+                      }
+                    });
+                    sessionStorage.clear();
+                  } catch {}
+                  window.location.reload();
+                }}
+                style={{ padding: '10px 18px', fontSize: '12px', fontWeight: '700', color: '#9E1B32', background: '#fee2e2', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+              >
+                Reset Login Session
+              </button>
+              <button
+                onClick={() => {
+                  try { localStorage.clear(); sessionStorage.clear(); } catch {}
                   window.location.reload();
                 }}
                 style={{ padding: '10px 18px', fontSize: '12px', fontWeight: '700', color: '#475569', background: '#f1f5f9', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
               >
-                Clear Cache & Reload
+                Clear All Cache
               </button>
             </div>
           </div>

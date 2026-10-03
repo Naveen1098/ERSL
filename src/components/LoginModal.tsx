@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, LogIn, UserPlus, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { supabase, supabaseConfigured, fetchProfile } from '../lib/supabase';
+import { supabase, supabaseConfigured, fetchProfile, ADMIN_EMAILS } from '../lib/supabase';
 
 interface LoginModalProps {
   onClose: () => void;
@@ -54,7 +54,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
         const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
         if (err) throw err;
         const profile = data.user ? await fetchProfile(data.user.id) : null;
-        if (!profile || profile.role === 'pending') {
+        const isAdmin = ADMIN_EMAILS.includes((email || '').toLowerCase().trim());
+        if (!isAdmin && profile && profile.role === 'pending') {
           await supabase.auth.signOut();
           setError('Your account is waiting for approval by the lab administrator.');
         } else {
