@@ -261,10 +261,24 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         supabase.from('tasks').select('*').order('due_date', { ascending: true, nullsFirst: false }),
         supabase.from('profiles').select('*').in('role', ['admin', 'member']),
       ]);
-      if (t.error) setError(t.error.message);
-      else if (t.data) {
-        setTasks(t.data as Task[]);
-        localStorage.setItem('ersl_tasks', JSON.stringify(t.data));
+      if (t.error) {
+        console.warn('Supabase tasks fetch notice:', t.error.message);
+      } else if (t.data) {
+        // Safe merge: preserve locally created tasks and combine with remote records
+        let existingLocal: Task[] = [];
+        try {
+          const raw = localStorage.getItem('ersl_tasks');
+          if (raw) existingLocal = JSON.parse(raw);
+        } catch {}
+
+        const remoteIds = new Set(t.data.map((item: any) => item.id));
+        const localPreserved = existingLocal.filter(item => !remoteIds.has(item.id));
+        const combinedTasks = [...(t.data as Task[]), ...localPreserved];
+
+        setTasks(combinedTasks);
+        try {
+          localStorage.setItem('ersl_tasks', JSON.stringify(combinedTasks));
+        } catch {}
       }
       if (p.data && p.data.length > 0) {
         (p.data as Profile[]).forEach(profile => mergeProfile(profile));
