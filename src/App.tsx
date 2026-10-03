@@ -89,7 +89,10 @@ export default function App() {
 
   const [publications, setPublications] = useState<Publication[]>(() => {
     const saved = localStorage.getItem('ersl_publications');
-    return saved ? JSON.parse(saved) : initialPublications;
+    if (!saved) return initialPublications;
+    const savedList: Publication[] = JSON.parse(saved);
+    const known = new Set(savedList.map(p => p.id));
+    return [...savedList, ...initialPublications.filter(p => !known.has(p.id))];
   });
 
   const [softwareList, setSoftwareList] = useState<Software[]>(() => {
@@ -133,7 +136,13 @@ export default function App() {
     fetch(`${import.meta.env.BASE_URL}publications.json`)
       .then(r => (r.ok ? r.json() : []))
       .then((data: Publication[]) => {
-        if (Array.isArray(data) && data.length > 0) setPublications(data);
+        if (Array.isArray(data) && data.length > 0) {
+          setPublications(prev => {
+            const known = new Set(prev.map(p => p.id));
+            const newItems = data.filter(p => !known.has(p.id));
+            return newItems.length > 0 ? [...newItems, ...prev] : prev;
+          });
+        }
       })
       .catch(() => {});
   }, []);
@@ -601,63 +610,36 @@ export default function App() {
     );
   };
 
-  const handleScholarSync = () => {
+  const handleScholarSync = async () => {
     if (isSyncingScholar) return;
     setIsSyncingScholar(true);
-    setSyncScholarLogs([]);
+    setSyncScholarLogs(['🔍 Connecting to Google Scholar data feed (public/publications.json)...']);
 
-    const steps = [
-      { delay: 500, log: '🔍 Connecting to Google Scholar profile server (Target ID: X_o2Y0AAAAAJ)...' },
-      { delay: 1500, log: '📥 Scraping published records for "Dr. Hongxing Liu" (The University of Alabama)...' },
-      { delay: 2500, log: '📑 Detected 2 new peer-reviewed hydrography Remote Sensing articles not in local index...' },
-      { delay: 3500, log: '⚙️ Parsing metadata, resolving DOI URLs, and extracting citation telemetry...' },
-      { delay: 4200, log: '💾 Merging 2 new records into ERSL local storage... Sync complete!' }
-    ];
-
-    steps.forEach((step) => {
-      setTimeout(() => {
-        setSyncScholarLogs(prev => [...prev, step.log]);
-        
-        // At the last step, append the articles
-        if (step.delay === 4200) {
-          const newArticle1 = {
-            id: 'pub-sync-1',
-            year: 2026,
-            title: 'Multi-Spectral Optical Remote Sensing for Water Quality Monitoring of Inland Rivers and Lakes',
-            authors: 'H. Liu, T. Mandal, N. Purushothaman',
-            venue: 'IEEE Transactions on Geoscience and Remote Sensing',
-            type: 'Peer-Reviewed Article',
-            abstract: 'A novel approach utilizing optical remote sensing for the water quality monitoring of inland reservoirs and lakes, mapping chlorophyll-a, turbidity, and toxic algal blooms.',
-            link: 'https://doi.org/10.1109/TGRS.2026.1234567',
-            keywords: ['Optical Remote Sensing', 'Water Quality', 'Algal Blooms', 'Suspended Sediment', 'Bathymetry']
-          };
-
-          const newArticle2 = {
-            id: 'pub-sync-2',
-            year: 2025,
-            title: 'Automated River Channel Delineation and Fluvial Geomorphology using Sentinel-1 SAR & LiDAR Imagery',
-            authors: 'H. Liu, D. Taylor, N. Purushothaman',
-            venue: 'Remote Sensing of Environment',
-            type: 'Peer-Reviewed Article',
-            abstract: 'Using Sentinel-1 SAR & LiDAR datasets and high-resolution UAV mapping to automate river channel delineation, tracking shoreline dynamics and fluvial geomorphology changes.',
-            link: 'https://doi.org/10.1016/j.rse.2025.7654321',
-            keywords: ['SAR & LiDAR', 'Channel Delineation', 'UAV Mapping', 'Fluvial Geomorphology', 'Machine Learning', 'Geospatial AI']
-          };
-
-          setPublications(prev => {
-            const hasArt1 = prev.some(p => p.id === 'pub-sync-1');
-            const hasArt2 = prev.some(p => p.id === 'pub-sync-2');
-            const updated = [...prev];
-            if (!hasArt2) updated.unshift(newArticle2);
-            if (!hasArt1) updated.unshift(newArticle1);
-            return updated;
-          });
-
-          setIsSyncingScholar(false);
-          appendAuditLog('SCHOLAR_PROFILE_SYNC', 'Synchronized Dr. Liu Scholar Profile: Imported 2 new articles');
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}publications.json?t=${Date.now()}`);
+      if (res.ok) {
+        const data: Publication[] = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setPublications(data);
+          localStorage.setItem('ersl_publications', JSON.stringify(data));
+          setSyncScholarLogs(prev => [
+            ...prev,
+            `📥 Retrieved ${data.length} publications directly from Dr. Hongxing Liu Scholar profile index.`,
+            `💾 Updated publications list successfully!`
+          ]);
+        } else {
+          setSyncScholarLogs(prev => [
+            ...prev,
+            'ℹ️ No publications returned from server. Run "python scripts/fetch_scholar.py" with SCHOLAR_ID set.'
+          ]);
         }
-      }, step.delay);
-    });
+      }
+    } catch {
+      setSyncScholarLogs(prev => [...prev, '❌ Unable to fetch publications index.']);
+    } finally {
+      setIsSyncingScholar(false);
+      appendAuditLog('SCHOLAR_PROFILE_SYNC', 'Synchronized publications from Scholar index');
+    }
   };
 
   // Filter and sort publication logic

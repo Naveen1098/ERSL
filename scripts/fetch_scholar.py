@@ -9,7 +9,7 @@ import sys
 
 from scholarly import scholarly
 
-scholar_id = os.environ.get("SCHOLAR_ID", "").strip()
+scholar_id = os.environ.get("SCHOLAR_ID", "GN_fGecAAAAJ").strip()
 if not scholar_id:
     print("SCHOLAR_ID not set; skipping.")
     sys.exit(0)
