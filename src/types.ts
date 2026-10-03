@@ -72,6 +72,7 @@ export interface Person {
   scholar?: string;
   linkedin?: string;
   image: string;
+  group?: 'member' | 'collaborator'; // defaults to 'member'
 }
 
 export interface BoxFile {

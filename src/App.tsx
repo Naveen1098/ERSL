@@ -21,6 +21,23 @@ import {
   User, Role, ResearchTheme, Project, Publication, Software, 
   DataLayer, Instrument, Person, BoxFile, AuditLog 
 } from './types';
+import { newsItems } from './data/news';
+import { LoginModal } from './components/LoginModal';
+import { Workplan } from './components/Workplan';
+import { BoxFolders } from './components/BoxFolders';
+import { MemberManager } from './components/MemberManager';
+import { supabase, fetchProfile, profileToUser } from './lib/supabase';
+
+// Field photos: any image dropped into src/assets/field/ is picked up automatically
+const fieldPhotoModules = import.meta.glob('./assets/field/*.{jpg,jpeg,png,webp,JPG,JPEG,PNG,WEBP}', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+}) as Record<string, string>;
+const fieldPhotos = Object.entries(fieldPhotoModules).map(([path, url]) => ({
+  url,
+  caption: decodeURIComponent(path.split('/').pop() || '').replace(/\.[^.]+$/, ''),
+}));
 
 // Helper to resolve image paths (local folder under public/images/{category} vs base64/URL assets)
 const resolveImagePath = (
@@ -28,25 +45,27 @@ const resolveImagePath = (
   category: 'home' | 'research' | 'instruments' | 'people'
 ): string => {
   if (!imagePath) return '';
-  // If it's already a full web URL (http/https), a data URI (base64 from FileReader), or an absolute /images/ path
+  // Absolute /images/... paths must be re-based so they work under a sub-path (GitHub Pages /ERSL/)
+  const base = import.meta.env.BASE_URL;
+  if (imagePath.startsWith('/images/')) {
+    return `${base}${imagePath.slice(1)}`;
+  }
   if (
     imagePath.startsWith('http://') || 
     imagePath.startsWith('https://') || 
-    imagePath.startsWith('data:') || 
-    imagePath.startsWith('/images/')
+    imagePath.startsWith('data:')
   ) {
     return imagePath;
   }
   // Otherwise, map to the designated local public images folder
-  return `/images/${category}/${imagePath}`;
+  return `${base}images/${category}/${imagePath}`;
 };
 
 export default function App() {
   // Global States (with LocalStorage persistence for testing)
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('ersl_user');
-    return saved ? JSON.parse(saved) : null;
-  });
+  // Real login: the user comes from the Supabase session (see effect below), never from localStorage
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [peopleSubTab, setPeopleSubTab] = useState<'member' | 'collaborator'>('member');
 
   const [activeTab, setActiveTab] = useState<string>(() => {
     const saved = localStorage.getItem('ersl_tab');
@@ -89,7 +108,11 @@ export default function App() {
 
   const [people, setPeople] = useState<Person[]>(() => {
     const saved = localStorage.getItem('ersl_people');
-    return saved ? JSON.parse(saved) : initialPeople;
+    if (!saved) return initialPeople;
+    // Merge: people added to the code later (e.g. new members) must still show up for returning visitors
+    const savedList: Person[] = JSON.parse(saved);
+    const known = new Set(savedList.map(p => p.id));
+    return [...savedList, ...initialPeople.filter(p => !known.has(p.id))];
   });
 
   const [boxFiles, setBoxFiles] = useState<BoxFile[]>(() => {
@@ -103,6 +126,26 @@ export default function App() {
   });
 
   const [selectedProjectDetails, setSelectedProjectDetails] = useState<Project | null>(null);
+
+  // Publications auto-synced from Google Scholar (public/publications.json, refreshed weekly by GitHub Action)
+  useEffect(() => {
+    fetch(`${import.meta.env.BASE_URL}publications.json`)
+      .then(r => (r.ok ? r.json() : []))
+      .then((data: Publication[]) => {
+        if (Array.isArray(data) && data.length > 0) setPublications(data);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Bulletin folders: one folder per research idea
+  const [bulletinFolders, setBulletinFolders] = useState<string[]>(() => {
+    const saved = localStorage.getItem('ersl_bulletin_folders');
+    return saved ? JSON.parse(saved) : ['General'];
+  });
+  const [activeBulletinFolder, setActiveBulletinFolder] = useState<string>('All');
+  useEffect(() => {
+    localStorage.setItem('ersl_bulletin_folders', JSON.stringify(bulletinFolders));
+  }, [bulletinFolders]);
 
   // Lab Bulletins & Announcements State (Point 5)
   const [bulletins, setBulletins] = useState<any[]>(() => {
@@ -298,13 +341,25 @@ export default function App() {
   }, [teachingList]);
 
   useEffect(() => {
-    if (currentUser) {
-      localStorage.setItem('ersl_user', JSON.stringify(currentUser));
-    } else {
-      localStorage.removeItem('ersl_user');
+    if (!currentUser) {
+      localStorage.removeItem('ersl_user'); // clear any old fake-SSO session
       setEditMode(false);
     }
   }, [currentUser]);
+
+  // Supabase session -> currentUser (only approved members/admins are treated as logged in)
+  useEffect(() => {
+    if (!supabase) return;
+    const apply = async (userId?: string) => {
+      if (!userId) { setCurrentUser(null); return; }
+      const profile = await fetchProfile(userId);
+      if (profile && profile.role !== 'pending') setCurrentUser(profileToUser(profile));
+      else setCurrentUser(null);
+    };
+    supabase.auth.getSession().then(({ data }) => apply(data.session?.user.id));
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => { apply(session?.user.id); });
+    return () => sub.subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('ersl_tab', activeTab);
@@ -360,6 +415,7 @@ export default function App() {
     if (currentUser) {
       appendAuditLog('SSO_LOGOUT', 'Logged out of ERSL portal session');
     }
+    supabase?.auth.signOut();
     setCurrentUser(null);
     setActiveTab('home');
   };
@@ -732,6 +788,28 @@ export default function App() {
                 ))}
               </div>
             </div>
+
+            {/* Public News */}
+            <section id="home-news" className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 text-left">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight">Latest News</h2>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#9E1B32]">Public</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {newsItems.map((n) => (
+                  <article key={n.id} className="border border-gray-100 rounded-xl p-4 bg-slate-50 hover:shadow-md transition-shadow">
+                    <time className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                      {new Date(n.date + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                    </time>
+                    <h3 className="font-extrabold text-slate-800 text-sm mt-1.5 leading-snug">{n.title}</h3>
+                    <p className="text-xs text-gray-600 mt-2 leading-relaxed">{n.summary}</p>
+                    {n.link && (
+                      <a href={n.link} target="_blank" rel="noreferrer" className="text-xs font-bold text-[#9E1B32] mt-2 inline-block hover:underline">Read more →</a>
+                    )}
+                  </article>
+                ))}
+              </div>
+            </section>
 
             {/* Core Feature Block with University Seal styling */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center bg-white p-8 md:p-10 rounded-2xl shadow-sm border border-gray-100">
@@ -1838,8 +1916,36 @@ export default function App() {
                 )}
               </div>
 
+              <div className="flex gap-2 border-b border-gray-200">
+                {([['member', 'Team'], ['collaborator', 'Collaborators']] as const).map(([k, label]) => (
+                  <button
+                    key={k}
+                    onClick={() => setPeopleSubTab(k)}
+                    className={`px-5 py-2.5 text-sm font-bold -mb-px border-b-2 transition-colors cursor-pointer ${
+                      peopleSubTab === k ? 'border-[#9E1B32] text-[#9E1B32]' : 'border-transparent text-gray-500 hover:text-gray-800'
+                    }`}
+                  >
+                    {label} ({people.filter(p => (p.group || 'member') === k).length})
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-10">
+                {([
+                  { key: 'member', title: 'People' },
+                  { key: 'collaborator', title: 'Collaborators' },
+                ] as const).filter(g => g.key === peopleSubTab).map(({ key, title }) => {
+                  const group = people.filter(p => (p.group || 'member') === key);
+                  if (group.length === 0 && !editMode) return (
+                    <div key={key} className="bg-white p-10 rounded-xl border border-dashed border-gray-300 text-center text-sm text-gray-500">
+                      No {title.toLowerCase()} listed yet.
+                    </div>
+                  );
+                  return (
+              <div key={key} className="space-y-4">
+              <h3 className="text-lg font-extrabold text-slate-800 border-b-2 border-[#9E1B32] inline-block pb-1">{title}</h3>
               <div className="grid grid-cols-1 gap-8 text-left">
-                {people.map((person) => (
+                {group.map((person) => (
                   <div key={person.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row overflow-hidden group hover:shadow-md transition-shadow relative h-[480px] md:h-[280px]">
                     
                     {/* Admin actions */}
@@ -1946,8 +2052,39 @@ export default function App() {
                   </div>
                 ))}
               </div>
+              </div>
+                  );
+                })}
+              </div>
             </div>
 
+          </div>
+        )}
+
+        {/* VIEW: FIELD PHOTOS */}
+        {activeTab === 'field' && (
+          <div className="space-y-8 animate-in fade-in duration-300">
+            <div className="bg-[#9E1B32] rounded-2xl p-6 md:p-8 text-white shadow-md text-left">
+              <span className="bg-white/10 px-2.5 py-1 rounded text-[10px] font-extrabold uppercase tracking-widest">FIELD WORK</span>
+              <h2 className="text-2xl md:text-3xl font-extrabold mt-2 tracking-tight">Field Photos</h2>
+              <p className="text-xs md:text-sm text-red-100 mt-1 max-w-xl">
+                Images from our field campaigns, UAV flights and river surveys.
+              </p>
+            </div>
+            {fieldPhotos.length === 0 ? (
+              <div className="bg-white p-12 rounded-xl border border-dashed border-gray-300 text-center text-gray-500 text-sm">
+                No photos yet. Add images to <code className="font-mono">src/assets/field/</code> and push to publish.
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {fieldPhotos.map((p) => (
+                  <figure key={p.url} className="bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                    <img src={p.url} alt={p.caption} loading="lazy" className="w-full h-48 object-cover" />
+                    <figcaption className="p-2.5 text-xs text-gray-600 font-medium text-left">{p.caption}</figcaption>
+                  </figure>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -2079,6 +2216,7 @@ export default function App() {
                       const title = (target.elements.namedItem('b_title') as HTMLInputElement).value;
                       const content = (target.elements.namedItem('b_content') as HTMLTextAreaElement).value;
                       const priority = (target.elements.namedItem('b_priority') as HTMLSelectElement).value;
+                      const folder = (target.elements.namedItem('b_folder') as HTMLSelectElement).value;
                       
                       if (!title || !content) return;
 
@@ -2087,6 +2225,7 @@ export default function App() {
                         title,
                         content,
                         priority,
+                        folder,
                         sender: currentUser ? currentUser.name : 'Dr. Hongxing Liu',
                         date: new Date().toISOString().replace('T', ' ').substring(0, 16)
                       };
@@ -2106,6 +2245,17 @@ export default function App() {
                         className="w-full p-2 bg-slate-50 border border-gray-300 rounded text-xs focus:outline-none focus:border-[#9E1B32]"
                         required 
                       />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-gray-700">Research Idea Folder</label>
+                      <select 
+                        name="b_folder"
+                        defaultValue={activeBulletinFolder !== 'All' ? activeBulletinFolder : 'General'}
+                        className="w-full p-2 bg-slate-50 border border-gray-300 rounded text-xs focus:outline-none focus:border-[#9E1B32]"
+                      >
+                        {bulletinFolders.map(f => <option key={f} value={f}>{f}</option>)}
+                      </select>
                     </div>
 
                     <div className="space-y-1">
@@ -2145,8 +2295,39 @@ export default function App() {
               <div className={`${(editMode && (currentUser?.email === 'hongxing.liu@ua.edu' || currentUser?.role === 'Admin')) ? 'lg:col-span-7' : 'lg:col-span-12'} space-y-4 text-left`}>
                 <h3 className="font-extrabold text-slate-800 text-sm flex items-center space-x-2">
                   <span>📬</span>
-                  <span>Active Notice Board ({bulletins.length})</span>
+                  <span>Active Notice Board ({bulletins.filter(b => activeBulletinFolder === 'All' || (b.folder || 'General') === activeBulletinFolder).length})</span>
                 </h3>
+
+                {/* Research idea folders */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {['All', ...bulletinFolders].map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setActiveBulletinFolder(f)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors cursor-pointer ${
+                        activeBulletinFolder === f
+                          ? 'bg-[#9E1B32] text-white border-[#9E1B32]'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-[#9E1B32] hover:text-[#9E1B32]'
+                      }`}
+                    >
+                      📁 {f}
+                    </button>
+                  ))}
+                  {editMode && (currentUser?.email === 'hongxing.liu@ua.edu' || currentUser?.role === 'Admin') && (
+                    <button
+                      onClick={() => {
+                        const name = prompt('New research idea folder name:')?.trim();
+                        if (name && !bulletinFolders.includes(name)) {
+                          setBulletinFolders(prev => [...prev, name]);
+                          setActiveBulletinFolder(name);
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-full text-xs font-bold border border-dashed border-emerald-500 text-emerald-700 hover:bg-emerald-50 cursor-pointer"
+                    >
+                      + New Folder
+                    </button>
+                  )}
+                </div>
 
                 {bulletins.length === 0 ? (
                   <div className="bg-white p-12 rounded-xl border border-gray-100 text-center text-gray-400 max-w-md mx-auto shadow-xs">
@@ -2156,7 +2337,7 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {bulletins.map((b) => (
+                    {bulletins.filter(b => activeBulletinFolder === 'All' || (b.folder || 'General') === activeBulletinFolder).map((b) => (
                       <div 
                         key={b.id} 
                         className={`bg-white p-5 rounded-xl border-l-4 shadow-xs transition-all relative group ${
@@ -2193,6 +2374,7 @@ export default function App() {
                             </span>
                           )}
                           <span className="text-[10px] text-gray-400 font-medium">{b.date}</span>
+                          <span className="text-[10px] font-bold text-[#9E1B32] bg-red-50 border border-red-100 px-2 py-0.5 rounded-full">📁 {b.folder || 'General'}</span>
                         </div>
 
                         <h4 className="font-extrabold text-slate-800 text-sm mt-2">{b.title}</h4>
@@ -2390,16 +2572,11 @@ export default function App() {
           </div>
         )}
 
-        {/* VIEW 9: SECURE COLLABORATIVE BOX WORKSPACE */}
+        {/* VIEW 9: BOX FOLDERS (public folders for everyone, private ones for approved members) */}
         {activeTab === 'box' && (
           <div className="space-y-6 animate-in fade-in duration-300">
             {currentUser ? (
-              <BoxExplorer
-                files={boxFiles}
-                currentUser={currentUser}
-                onAddFile={handleBoxAddFile}
-                onDeleteFile={handleBoxDeleteFile}
-              />
+              <BoxFolders currentUser={currentUser} />
             ) : (
               <div className="bg-white p-12 rounded-xl border border-gray-100 text-center text-gray-400 max-w-lg mx-auto shadow-sm space-y-4">
                 <Lock className="w-12 h-12 mx-auto text-[#9E1B32]" />
@@ -2420,9 +2597,25 @@ export default function App() {
           </div>
         )}
 
+        {/* VIEW: WORK PLAN (private) */}
+        {activeTab === 'workplan' && (
+          <div>
+            {currentUser ? (
+              <Workplan currentUser={currentUser} />
+            ) : (
+              <div className="bg-white p-12 rounded-xl border border-gray-100 text-center max-w-lg mx-auto shadow-sm space-y-4">
+                <Lock className="w-12 h-12 mx-auto text-[#9E1B32]" />
+                <p className="text-sm font-bold text-gray-800">Members only</p>
+                <button onClick={() => setShowSSOPopup(true)} className="bg-[#9E1B32] hover:bg-red-800 text-white text-xs font-bold py-2 px-6 rounded cursor-pointer">Log in</button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* VIEW 10: ADMIN PANEL / SETTINGS */}
         {activeTab === 'admin' && (
           <div className="space-y-6 animate-in fade-in duration-300">
+            {currentUser && currentUser.role === 'Admin' && <MemberManager />}
             {currentUser && currentUser.role === 'Admin' ? (
               <AdminDashboard
                 currentUser={currentUser}
@@ -2481,7 +2674,7 @@ export default function App() {
           <div>
             <h5 className="text-white font-extrabold text-sm mb-3">Administrative Access</h5>
             <p className="text-xs text-gray-400 leading-relaxed">
-              Protected by Shibboleth Central Authentication Service. Unregistered access attempts are logged securely in OIT directory networks.
+              Private member area (workplans, lab folders) requires an approved account. Request access from the Member Login.
             </p>
             {!currentUser && (
               <button 
@@ -2501,10 +2694,7 @@ export default function App() {
 
       {/* SSO Login modal popup */}
       {showSSOPopup && (
-        <UASSO 
-          onSuccess={handleSSOSuccess}
-          onCancel={() => setShowSSOPopup(false)}
-        />
+        <LoginModal onClose={() => setShowSSOPopup(false)} />
       )}
 
       {/* Project Details Modal (Point 2) */}

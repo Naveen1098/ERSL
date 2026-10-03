@@ -61,7 +61,8 @@ export const EditModal: React.FC<EditModalProps> = ({
           email: '',
           scholar: '',
           linkedin: '',
-          image: ''
+          image: '',
+          group: 'member'
         });
       } else if (type === 'software') {
         setFormData({
@@ -526,6 +527,19 @@ export const EditModal: React.FC<EditModalProps> = ({
                     required
                   />
                 </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block font-bold text-gray-700">Listed Under</label>
+                <select
+                  name="group"
+                  value={formData.group || 'member'}
+                  onChange={handleChange}
+                  className="w-full p-2.5 bg-white border border-gray-300 rounded focus:outline-none focus:border-[#9E1B32]"
+                >
+                  <option value="member">People (Lab Member)</option>
+                  <option value="collaborator">Collaborator</option>
+                </select>
               </div>
 
               <div className="space-y-1">

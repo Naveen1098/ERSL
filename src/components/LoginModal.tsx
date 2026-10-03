@@ -1,0 +1,124 @@
+import React, { useState } from 'react';
+import { X, LogIn, UserPlus, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { supabase, supabaseConfigured, fetchProfile } from '../lib/supabase';
+
+interface LoginModalProps {
+  onClose: () => void;
+}
+
+export const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase) return;
+    setBusy(true);
+    setError('');
+    setInfo('');
+    try {
+      if (mode === 'signup') {
+        const { error: err } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { name } },
+        });
+        if (err) throw err;
+        await supabase.auth.signOut();
+        setInfo('Request sent. Check your email to confirm the address if asked, then wait for Dr. Liu to approve your access.');
+        setMode('signin');
+      } else {
+        const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
+        if (err) throw err;
+        const profile = data.user ? await fetchProfile(data.user.id) : null;
+        if (!profile || profile.role === 'pending') {
+          await supabase.auth.signOut();
+          setError('Your account is waiting for approval by the lab administrator.');
+        } else {
+          onClose();
+        }
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Something went wrong. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const reset = async () => {
+    if (!supabase || !email) {
+      setError('Enter your email first, then click "Forgot password".');
+      return;
+    }
+    const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + window.location.pathname,
+    });
+    if (err) setError(err.message);
+    else setInfo('Password reset email sent.');
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-[60]">
+      <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-gray-100 overflow-hidden text-left">
+        <div className="bg-[#9E1B32] p-5 text-white relative">
+          <button onClick={onClose} className="absolute top-4 right-4 text-white/80 hover:text-white cursor-pointer" title="Close">
+            <X className="w-4 h-4" />
+          </button>
+          <h2 className="text-lg font-extrabold">ERSL Member Portal</h2>
+          <p className="text-xs text-red-100 mt-1">Private area for lab members. Works with any email address.</p>
+        </div>
+
+        {!supabaseConfigured ? (
+          <div className="p-6 text-xs text-gray-600 space-y-2">
+            <p className="font-bold text-red-700 flex items-center gap-1"><AlertCircle className="w-4 h-4" /> Login is not configured yet.</p>
+            <p>The site administrator must add the Supabase keys (see SETUP-LOGIN.md).</p>
+          </div>
+        ) : (
+          <form onSubmit={submit} className="p-6 space-y-4 text-xs">
+            <div className="flex rounded-lg bg-slate-100 p-1 font-bold">
+              <button type="button" onClick={() => setMode('signin')}
+                className={`flex-1 py-2 rounded-md cursor-pointer ${mode === 'signin' ? 'bg-white shadow text-[#9E1B32]' : 'text-gray-500'}`}>Sign in</button>
+              <button type="button" onClick={() => setMode('signup')}
+                className={`flex-1 py-2 rounded-md cursor-pointer ${mode === 'signup' ? 'bg-white shadow text-[#9E1B32]' : 'text-gray-500'}`}>Request access</button>
+            </div>
+
+            {mode === 'signup' && (
+              <div className="space-y-1">
+                <label className="font-bold text-gray-700">Full name</label>
+                <input value={name} onChange={e => setName(e.target.value)} required
+                  className="w-full p-2.5 border border-gray-300 rounded focus:outline-none focus:border-[#9E1B32]" />
+              </div>
+            )}
+            <div className="space-y-1">
+              <label className="font-bold text-gray-700">Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
+                className="w-full p-2.5 border border-gray-300 rounded focus:outline-none focus:border-[#9E1B32]" />
+            </div>
+            <div className="space-y-1">
+              <label className="font-bold text-gray-700">Password</label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={8}
+                className="w-full p-2.5 border border-gray-300 rounded focus:outline-none focus:border-[#9E1B32]" />
+            </div>
+
+            {error && <p className="text-red-700 bg-red-50 border border-red-100 rounded p-2 flex gap-1"><AlertCircle className="w-4 h-4 shrink-0" />{error}</p>}
+            {info && <p className="text-emerald-700 bg-emerald-50 border border-emerald-100 rounded p-2 flex gap-1"><CheckCircle2 className="w-4 h-4 shrink-0" />{info}</p>}
+
+            <button type="submit" disabled={busy}
+              className="w-full bg-[#9E1B32] hover:bg-red-800 disabled:opacity-60 text-white font-bold py-2.5 rounded flex items-center justify-center gap-2 cursor-pointer">
+              {mode === 'signin' ? <LogIn className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+              {busy ? 'Please wait...' : mode === 'signin' ? 'Sign in' : 'Request access'}
+            </button>
+            {mode === 'signin' && (
+              <button type="button" onClick={reset} className="text-[#9E1B32] font-semibold hover:underline cursor-pointer">Forgot password?</button>
+            )}
+          </form>
+        )}
+      </div>
+    </div>
+  );
+};

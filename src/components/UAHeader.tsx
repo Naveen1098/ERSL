@@ -31,19 +31,16 @@ export const UAHeader: React.FC<UAHeaderProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
+  const [logoFailed, setLogoFailed] = useState(false);
+
+  // Order: ERSL (brand/home) -> People -> Research Areas -> Publications -> Teaching Materials -> Field Photos
   const tabs = [
-    { id: 'home', label: 'Home' },
+    { id: 'people', label: 'People' },
     { id: 'research', label: 'Research Areas' },
     { id: 'publications', label: 'Publications' },
-    { id: 'software', label: 'Software & Models' },
-    { id: 'data', label: 'Data Layers' },
-    { id: 'instruments', label: 'Instruments & Facilities' },
-    { id: 'people', label: 'People' },
-    { id: 'opportunities', label: 'Opportunities' },
-    ...(currentUser ? [
-      { id: 'teaching', label: 'Teaching Materials' },
-      { id: 'bulletins', label: 'Lab Bulletins' }
-    ] : []),
+    ...(currentUser ? [{ id: 'teaching', label: 'Teaching Materials' }] : []),
+    { id: 'field', label: 'Field Photos' },
+    ...(currentUser ? [{ id: 'bulletins', label: 'Lab Bulletins' }, { id: 'workplan', label: 'Work Plan' }] : []),
   ];
 
   return (
@@ -96,13 +93,23 @@ export const UAHeader: React.FC<UAHeaderProps> = ({
           {/* Logo / Brand Name */}
           <button 
             onClick={() => onTabChange('home')} 
-            className="flex flex-col text-left focus:outline-none cursor-pointer group"
+            className="flex items-center space-x-3 text-left focus:outline-none cursor-pointer group"
           >
-            <span className="text-[#9E1B32] font-extrabold text-xl md:text-2xl tracking-tight group-hover:text-red-800 transition-colors">
-              Environment & Remote Sensing Lab
-            </span>
-            <span className="text-[10px] md:text-xs font-bold tracking-widest text-gray-400 uppercase mt-0.5">
-              Environmental Remote Sensing Laboratory (ERSL)
+            {/* Lab logo: drop your file at public/images/logo/logo.png */}
+            {logoFailed ? (
+              <div className="w-12 h-12 rounded-lg border-2 border-dashed border-gray-300 text-gray-400 flex items-center justify-center text-[9px] font-bold text-center leading-tight shrink-0">
+                LAB<br />LOGO
+              </div>
+            ) : (
+              <img
+                src={`${import.meta.env.BASE_URL}images/logo/logo.png`}
+                onError={() => setLogoFailed(true)}
+                alt="ERSL logo"
+                className="w-12 h-12 object-contain shrink-0"
+              />
+            )}
+            <span className={`font-extrabold text-xl md:text-2xl tracking-tight transition-colors group-hover:text-red-800 ${currentTab === 'home' ? 'text-[#9E1B32]' : 'text-[#9E1B32]/90'}`}>
+              Environmental Remote Sensing Laboratory
             </span>
           </button>
 
@@ -203,7 +210,7 @@ export const UAHeader: React.FC<UAHeaderProps> = ({
                       className="w-full text-left px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50/30 transition-colors flex items-center space-x-2"
                     >
                       <LogOut className="w-4 h-4" />
-                      <span>Logout (myBama SSO)</span>
+                      <span>Logout</span>
                     </button>
                   </div>
                 )}
@@ -214,7 +221,7 @@ export const UAHeader: React.FC<UAHeaderProps> = ({
                 className="flex items-center space-x-2 bg-[#9E1B32] hover:bg-red-800 text-white text-sm font-bold py-2 px-4 rounded-md transition-all shadow-sm shadow-red-100 cursor-pointer"
               >
                 <LogIn className="w-4 h-4" />
-                <span>myBama SSO Login</span>
+                <span>Member Login</span>
               </button>
             )}
           </div>
@@ -303,7 +310,7 @@ export const UAHeader: React.FC<UAHeaderProps> = ({
                   className="w-full text-left py-2 px-3 text-sm font-semibold text-red-600 rounded-md hover:bg-red-50 flex items-center space-x-2"
                 >
                   <LogOut className="w-4 h-4" />
-                  <span>Logout (myBama SSO)</span>
+                  <span>Logout</span>
                 </button>
               </div>
             ) : (
@@ -315,7 +322,7 @@ export const UAHeader: React.FC<UAHeaderProps> = ({
                 className="w-full bg-[#9E1B32] hover:bg-red-800 text-white text-center font-bold py-2 px-4 rounded-md flex items-center justify-center space-x-2 shadow-sm"
               >
                 <LogIn className="w-4 h-4" />
-                <span>myBama SSO Login</span>
+                <span>Member Login</span>
               </button>
             )}
           </div>
