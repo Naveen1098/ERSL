@@ -92,6 +92,17 @@ const reconstructAbstract = (invertedIndex?: Record<string, number[]> | null): s
   return text.length > 550 ? text.slice(0, 550) + '...' : text;
 };
 
+const getCleanInitials = (name?: string): string => {
+  if (!name) return 'UA';
+  const parts = name.split(' ').filter(p => {
+    const lower = p.toLowerCase().replace(/\./g, '');
+    return !['dr', 'prof', 'professor', 'phd', 'candidate', 'postdoc', 'researcher'].includes(lower);
+  });
+  if (parts.length === 0) return 'UA';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
 export default function App() {
   // Global States (with LocalStorage persistence for testing)
   // Real login: the user comes from the Supabase session (see effect below), never from localStorage
@@ -110,15 +121,23 @@ export default function App() {
   const [editMode, setEditMode] = useState(false);
   const isAdmin = currentUser?.role === 'Admin';
 
-  // Database lists
+  // Database lists with bulletproof fallback error handling
   const [themes, setThemes] = useState<ResearchTheme[]>(() => {
-    const saved = localStorage.getItem('ersl_themes');
-    return saved ? JSON.parse(saved) : initialThemes;
+    try {
+      const saved = localStorage.getItem('ersl_themes');
+      return saved ? JSON.parse(saved) : initialThemes;
+    } catch {
+      return initialThemes;
+    }
   });
 
   const [projects, setProjects] = useState<Project[]>(() => {
-    const saved = localStorage.getItem('ersl_projects');
-    return saved ? JSON.parse(saved) : initialProjects;
+    try {
+      const saved = localStorage.getItem('ersl_projects');
+      return saved ? JSON.parse(saved) : initialProjects;
+    } catch {
+      return initialProjects;
+    }
   });
 
   const [publications, setPublications] = useState<Publication[]>(() => {
@@ -131,7 +150,6 @@ export default function App() {
         return [];
       }
     }
-    // Start empty without forcing pre-created publications.json mock data
     return [];
   });
 
@@ -141,37 +159,62 @@ export default function App() {
   }, [publications]);
 
   const [softwareList, setSoftwareList] = useState<Software[]>(() => {
-    const saved = localStorage.getItem('ersl_software');
-    return saved ? JSON.parse(saved) : initialSoftware;
+    try {
+      const saved = localStorage.getItem('ersl_software');
+      return saved ? JSON.parse(saved) : initialSoftware;
+    } catch {
+      return initialSoftware;
+    }
   });
 
   const [dataLayers, setDataLayers] = useState<DataLayer[]>(() => {
-    const saved = localStorage.getItem('ersl_datalayers');
-    return saved ? JSON.parse(saved) : initialDataLayers;
+    try {
+      const saved = localStorage.getItem('ersl_datalayers');
+      return saved ? JSON.parse(saved) : initialDataLayers;
+    } catch {
+      return initialDataLayers;
+    }
   });
 
   const [instruments, setInstruments] = useState<Instrument[]>(() => {
-    const saved = localStorage.getItem('ersl_instruments');
-    return saved ? JSON.parse(saved) : initialInstruments;
+    try {
+      const saved = localStorage.getItem('ersl_instruments');
+      return saved ? JSON.parse(saved) : initialInstruments;
+    } catch {
+      return initialInstruments;
+    }
   });
 
   const [people, setPeople] = useState<Person[]>(() => {
-    const saved = localStorage.getItem('ersl_people');
-    if (!saved) return initialPeople;
-    // Merge: people added to the code later (e.g. new members) must still show up for returning visitors
-    const savedList: Person[] = JSON.parse(saved);
-    const known = new Set(savedList.map(p => p.id));
-    return [...savedList, ...initialPeople.filter(p => !known.has(p.id))];
+    try {
+      const saved = localStorage.getItem('ersl_people');
+      if (!saved) return initialPeople;
+      const parsed = JSON.parse(saved);
+      if (!Array.isArray(parsed) || parsed.length === 0) return initialPeople;
+      const validSaved = parsed.filter(p => p && p.id && p.name && (p.bio || p.researchFocus));
+      const known = new Set(validSaved.map(p => p.id));
+      return [...validSaved, ...initialPeople.filter(p => !known.has(p.id))];
+    } catch {
+      return initialPeople;
+    }
   });
 
   const [boxFiles, setBoxFiles] = useState<BoxFile[]>(() => {
-    const saved = localStorage.getItem('ersl_boxfiles');
-    return saved ? JSON.parse(saved) : initialBoxFiles;
+    try {
+      const saved = localStorage.getItem('ersl_boxfiles');
+      return saved ? JSON.parse(saved) : initialBoxFiles;
+    } catch {
+      return initialBoxFiles;
+    }
   });
 
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
-    const saved = localStorage.getItem('ersl_auditlogs');
-    return saved ? JSON.parse(saved) : initialAuditLogs;
+    try {
+      const saved = localStorage.getItem('ersl_auditlogs');
+      return saved ? JSON.parse(saved) : initialAuditLogs;
+    } catch {
+      return initialAuditLogs;
+    }
   });
 
   const [selectedProjectDetails, setSelectedProjectDetails] = useState<Project | null>(null);
