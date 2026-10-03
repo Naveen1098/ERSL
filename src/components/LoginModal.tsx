@@ -40,7 +40,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
               subject: `[ERSL Website] New Access Request: ${name || email}`,
               applicant_name: name,
               applicant_email: email,
-              message: `New user requested member access to ERSL Website:\n\nName: ${name}\nEmail: ${email}\n\nPlease log into https://naveen1098.github.io/ERSL/ -> Control Panel -> Members to approve this user.`,
+              message: `New user requested member access to ERSL Website:\n\nName: ${name}\nEmail: ${email}\n\nPlease log into https://ersl.pages.dev/ -> Control Panel -> Members to approve this user.`,
               recipients: 'hongxing.liu@ua.edu, npurushothaman@ua.edu'
             }),
           });

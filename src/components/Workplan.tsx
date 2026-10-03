@@ -387,7 +387,7 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
 
     // Build standard, professional email content
     const mailSubject = `[ERSL Lab Workplan] New Research Milestone Assigned: ${form.title}`;
-    const mailBody = `Hello ${recipientName},\n\nA new research milestone has been assigned to you by Dr. Hongxing Liu on the ERSL Lab Workplan:\n\n• Task: ${form.title}\n• Target Due Date: ${form.due_date || 'No fixed deadline'}\n• Deliverables & Scope: ${form.description || 'Milestone tracking item.'}\n\nPlease visit the ERSL Portal to review instructions and post progress updates:\nhttps://naveen1098.github.io/ERSL/\n\nBest regards,\nDr. Hongxing Liu\nEnvironmental Remote Sensing Laboratory (ERSL)\nDepartment of Geography and the Environment\nThe University of Alabama`;
+    const mailBody = `Hello ${recipientName},\n\nA new research milestone has been assigned to you by Dr. Hongxing Liu on the ERSL Lab Workplan:\n\n• Task: ${form.title}\n• Target Due Date: ${form.due_date || 'No fixed deadline'}\n• Deliverables & Scope: ${form.description || 'Milestone tracking item.'}\n\nPlease visit the ERSL Portal to review instructions and post progress updates:\nhttps://ersl.pages.dev/\n\nBest regards,\nDr. Hongxing Liu\nEnvironmental Remote Sensing Laboratory (ERSL)\nDepartment of Geography and the Environment\nThe University of Alabama`;
     const mailtoUrl = `mailto:${encodeURIComponent(recipientEmail)}?subject=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(mailBody)}`;
 
     // Set interactive 1-click Outlook/Gmail email prompt
@@ -826,7 +826,7 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             </a>
 
             <a
-              href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(assignedEmailPrompt.recipientEmail.split(' ')[0])}&su=${encodeURIComponent(`[ERSL Lab Workplan] New Research Milestone Assigned: ${assignedEmailPrompt.taskTitle}`)}&body=${encodeURIComponent(`Hello ${assignedEmailPrompt.recipientName},\n\nA new research milestone has been assigned to you by Dr. Hongxing Liu on the ERSL Lab Workplan:\n\n• Task: ${assignedEmailPrompt.taskTitle}\n• Target Due Date: ${assignedEmailPrompt.dueDate}\n• Scope: ${assignedEmailPrompt.description || 'Milestone tracking item.'}\n\nPlease visit the ERSL Portal:\nhttps://naveen1098.github.io/ERSL/\n\nBest regards,\nDr. Hongxing Liu\nEnvironmental Remote Sensing Laboratory (ERSL)\nThe University of Alabama`)}`}
+              href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(assignedEmailPrompt.recipientEmail.split(' ')[0])}&su=${encodeURIComponent(`[ERSL Lab Workplan] New Research Milestone Assigned: ${assignedEmailPrompt.taskTitle}`)}&body=${encodeURIComponent(`Hello ${assignedEmailPrompt.recipientName},\n\nA new research milestone has been assigned to you by Dr. Hongxing Liu on the ERSL Lab Workplan:\n\n• Task: ${assignedEmailPrompt.taskTitle}\n• Target Due Date: ${assignedEmailPrompt.dueDate}\n• Scope: ${assignedEmailPrompt.description || 'Milestone tracking item.'}\n\nPlease visit the ERSL Portal:\nhttps://ersl.pages.dev/\n\nBest regards,\nDr. Hongxing Liu\nEnvironmental Remote Sensing Laboratory (ERSL)\nThe University of Alabama`)}`}
               target="_blank"
               rel="noreferrer"
               className="bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-extrabold text-xs py-2.5 px-4 rounded-lg inline-flex items-center space-x-2 shadow-2xs transition-all"

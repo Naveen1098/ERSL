@@ -5,7 +5,7 @@
 2. **SQL Editor -> New query**: paste all of `supabase/schema.sql` -> **Run**.
 3. **Project Settings -> API**: copy the **Project URL** and the **anon public** key.
 4. **Authentication -> Providers -> Email**: keep enabled. (Optional: turn off "Confirm email" if you do not want members to confirm their address.)
-5. **Authentication -> URL Configuration**: set *Site URL* to `https://naveen1098.github.io/ERSL/`.
+5. **Authentication -> URL Configuration**: set *Site URL* to `https://ersl.pages.dev/` (and add `https://naveen1098.github.io/ERSL/` to Redirect URLs if testing both).
 
 ## 2. Give the website the keys
 In GitHub: repo **Settings -> Secrets and variables -> Actions -> Variables tab -> New repository variable**:
