@@ -1,0 +1,6 @@
+{
+  "name": "Environmental Remote Sensing Laboratory Portal",
+  "description": "A responsive, dynamic portal for the University of Alabama's Environmental Remote Sensing Lab, integrating simulated Shibboleth Single Sign-On, interactive Box cloud spaces, and role-based laboratory settings management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
