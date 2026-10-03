@@ -28,11 +28,12 @@ jobs:
         env:
           SCHOLAR_ID: ${{ vars.SCHOLAR_ID }}
         run: |
+          python -m pip install --upgrade pip
           pip install scholarly
           python scripts/fetch_scholar.py
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run build
