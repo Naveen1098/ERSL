@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { User } from '../types';
 
-const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || 'https://qulkwrhajibaddvgjaht.supabase.co';
+const key = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || 'sb_publishable_AVEbmVPu3rFKrpD7IFVc2Q_Cn4tWdc6';
 
 export const supabaseConfigured = Boolean(url && key);
 export const supabase = supabaseConfigured ? createClient(url!, key!) : null;
