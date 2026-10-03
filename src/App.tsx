@@ -1323,9 +1323,32 @@ export default function App() {
           </div>
         )}
 
-        {/* VIEW: PROFESSIONAL DEVELOPMENT */}
+        {/* VIEW: PROFESSIONAL DEVELOPMENT (RESTRICTED FOR MEMBERS ONLY) */}
         {activeTab === 'professional' && (
-          <ProfessionalDevelopment />
+          currentUser ? (
+            <ProfessionalDevelopment currentUser={currentUser} />
+          ) : (
+            <div className="bg-white p-12 rounded-2xl border border-gray-100 text-center max-w-lg mx-auto shadow-sm space-y-5 animate-in fade-in duration-300">
+              <div className="w-16 h-16 rounded-full bg-red-50 text-[#9E1B32] flex items-center justify-center mx-auto border border-red-100">
+                <Lock className="w-8 h-8" />
+              </div>
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#9E1B32] bg-red-50 px-2.5 py-1 rounded-full border border-red-100">
+                  CONFIDENTIAL MEMBER RESOURCE
+                </span>
+                <h3 className="text-lg font-extrabold text-slate-800 mt-2">Professional Development Vault Is Restricted</h3>
+                <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                  Proprietary journal manuscript frameworks, peer-reviewer rebuttal toolkits, NASA/NSF grant templates, and lab writing materials are reserved exclusively for authorized University of Alabama ERSL researchers.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowSSOPopup(true)}
+                className="bg-[#9E1B32] hover:bg-red-800 text-white text-xs font-bold py-2.5 px-6 rounded-lg transition-all shadow-md shadow-red-950/20 cursor-pointer inline-flex items-center space-x-2"
+              >
+                <span>Authenticate via myBama SSO or Member Login</span>
+              </button>
+            </div>
+          )
         )}
 
         {/* VIEW 4: SOFTWARE & MODELS */}

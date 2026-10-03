@@ -38,7 +38,7 @@ export const UAHeader: React.FC<UAHeaderProps> = ({
     { id: 'people', label: 'People' },
     { id: 'research', label: 'Research Areas' },
     { id: 'publications', label: 'Publications' },
-    { id: 'professional', label: 'Professional Development' },
+    { id: 'professional', label: `Professional Development${currentUser ? '' : ' 🔒'}` },
     ...(currentUser ? [{ id: 'teaching', label: 'Teaching Materials' }] : []),
     { id: 'field', label: 'Field Photos' },
     ...(currentUser ? [{ id: 'bulletins', label: 'Lab Bulletins' }, { id: 'workplan', label: 'Work Plan' }] : []),
