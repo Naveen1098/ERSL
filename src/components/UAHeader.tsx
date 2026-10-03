@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, LogIn, LogOut, Shield, FolderGit2, Menu, X, ChevronDown, UserCircle } from 'lucide-react';
+import { User, LogIn, LogOut, Shield, FolderGit2, Menu, X, ChevronDown, UserCircle, BookOpen } from 'lucide-react';
 
 interface UAHeaderProps {
   currentUser: { name: string; email: string; role: string; avatarUrl?: string } | null;
@@ -38,10 +38,13 @@ export const UAHeader: React.FC<UAHeaderProps> = ({
     { id: 'people', label: 'People' },
     { id: 'research', label: 'Research Areas' },
     { id: 'publications', label: 'Publications' },
-    { id: 'professional', label: `Professional Development${currentUser ? '' : ' 🔒'}` },
-    ...(currentUser ? [{ id: 'teaching', label: 'Teaching Materials' }] : []),
     { id: 'field', label: 'Field Photos' },
-    ...(currentUser ? [{ id: 'bulletins', label: 'Lab Bulletins' }, { id: 'workplan', label: 'Work Plan' }] : []),
+    ...(currentUser ? [
+      { id: 'professional', label: 'Professional Development' },
+      { id: 'teaching', label: 'Teaching Materials' },
+      { id: 'bulletins', label: 'Lab Bulletins' },
+      { id: 'workplan', label: 'Work Plan' }
+    ] : []),
   ];
 
   return (
@@ -194,6 +197,17 @@ export const UAHeader: React.FC<UAHeaderProps> = ({
                     >
                       <FolderGit2 className="w-4 h-4 text-blue-500" />
                       <span>Box Cloud Workspace</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        onTabChange('professional');
+                        setProfileDropdownOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-red-50/50 hover:text-[#9E1B32] transition-colors flex items-center space-x-2"
+                    >
+                      <BookOpen className="w-4 h-4 text-[#9E1B32]" />
+                      <span>Professional Development Vault</span>
                     </button>
 
                     {currentUser.role === 'Admin' && (
