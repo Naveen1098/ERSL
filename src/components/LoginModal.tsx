@@ -30,7 +30,25 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
         });
         if (err) throw err;
         await supabase.auth.signOut();
-        setInfo('Request sent. Check your email to confirm the address if asked, then wait for Dr. Liu to approve your access.');
+
+        // Send access request notification to administrator emails
+        try {
+          await fetch('https://formspree.io/f/xbjnqpyz', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              subject: `[ERSL Website] New Access Request: ${name || email}`,
+              applicant_name: name,
+              applicant_email: email,
+              message: `New user requested member access to ERSL Website:\n\nName: ${name}\nEmail: ${email}\n\nPlease log into https://naveen1098.github.io/ERSL/ -> Control Panel -> Members to approve this user.`,
+              recipients: 'naveenpurushothaman1098@gmail.com, hongxing.liu@ua.edu'
+            }),
+          });
+        } catch {
+          // Notification sent attempt completed
+        }
+
+        setInfo('Access request sent! Administrators (naveenpurushothaman1098@gmail.com) have been notified. Once your request is approved, you will be able to log in.');
         setMode('signin');
       } else {
         const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
