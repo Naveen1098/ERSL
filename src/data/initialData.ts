@@ -106,6 +106,17 @@ export const initialProjects: Project[] = [
 
 export const initialPublications: Publication[] = [
   {
+    id: "pub-0",
+    title: "DeepSAR Flood Mapper: Global Flood Mapping on Google Earth Engine Cloud Platform Using MLP Deep Learning Model with Sentinel-1 SAR Imagery and HAND Topographic Data",
+    authors: "H Liu, D Tian, S Cohen, T Mandal, L Wang",
+    venue: "GIScience & Remote Sensing 63 (1), 2314501",
+    year: 2026,
+    type: "Peer-Reviewed Article",
+    link: "https://doi.org/10.1080/15481603.2026.2314501",
+    abstract: "A global-scale deep learning flood detection system deployed on Google Earth Engine using multi-temporal Sentinel-1 Synthetic Aperture Radar (SAR) backscatter coupled with Height Above Nearest Drainage (HAND) hydrologic terrain data.",
+    keywords: ["Sentinel-1 SAR", "Deep Learning", "Google Earth Engine", "Flood Mapping"]
+  },
+  {
     id: "pub-1",
     title: "RS‐FloodXDepth: Enhancing remote sensing‐derived flood extent and estimating flood depth using a hydrologically guided region‐growing method and high‐resolution DEMs",
     authors: "D Tian, H Liu, L Wang, S Cohen, T Mandal",

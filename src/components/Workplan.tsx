@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, MessageSquare, AlertTriangle, Bell, Calendar as CalendarIcon, List, ChevronLeft, ChevronRight, User as UserIcon } from 'lucide-react';
+import { 
+  Plus, Trash2, MessageSquare, AlertTriangle, Bell, Calendar as CalendarIcon, 
+  List, ChevronLeft, ChevronRight, User as UserIcon, CheckCircle2, Clock, TrendingUp, Send, Check
+} from 'lucide-react';
 import { supabase, Profile } from '../lib/supabase';
 import type { User } from '../types';
 
@@ -51,6 +54,8 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
 
   const [open, setOpen] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [notificationStatus, setNotificationStatus] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', due_date: '', owner_id: currentUser.id });
 
   const load = useCallback(async () => {
@@ -68,9 +73,41 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
 
   const nameOf = (id: string) => people.find(p => p.id === id)?.name || people.find(p => p.id === id)?.email || 'Unknown';
 
+  const memberStats = useMemo(() => {
+    return people.map(p => {
+      const memberTasks = tasks.filter(t => t.owner_id === p.id);
+      const total = memberTasks.length;
+      const completed = memberTasks.filter(t => t.status === 'completed').length;
+      const inProgress = memberTasks.filter(t => t.status === 'in_progress').length;
+      const notStarted = memberTasks.filter(t => t.status === 'not_started').length;
+      const discuss = memberTasks.filter(t => t.status === 'discuss_with_liu').length;
+      const overdue = memberTasks.filter(t => {
+        const d = daysUntil(t.due_date);
+        return t.status !== 'completed' && d !== null && d < 0;
+      }).length;
+      const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+      return {
+        profile: p,
+        total,
+        completed,
+        inProgress,
+        notStarted,
+        discuss,
+        overdue,
+        percent,
+      };
+    });
+  }, [people, tasks]);
+
   const addTask = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
+    setError('');
+    setNotificationStatus('');
+
     const targetOwner = isAdmin ? form.owner_id : currentUser.id;
+    const assignedMember = people.find(p => p.id === targetOwner);
+
     const { error: err } = await supabase!.from('tasks').insert({
       title: form.title,
       description: form.description,
@@ -78,8 +115,39 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
       owner_id: targetOwner,
       created_by: currentUser.id,
     });
-    if (err) setError(err.message);
-    else { setForm({ ...form, title: '', description: '', due_date: '' }); load(); }
+
+    if (err) {
+      setError(err.message);
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Trigger automated email notification to assigned member
+    if (isAdmin && assignedMember && assignedMember.email) {
+      try {
+        await fetch('https://formspree.io/f/xbjnqpyz', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subject: `[ERSL Workplan] New Task Assigned by Dr. Hongxing Liu: ${form.title}`,
+            recipient_name: assignedMember.name || assignedMember.email,
+            recipient_email: assignedMember.email,
+            task_title: form.title,
+            due_date: form.due_date || 'No specific due date',
+            task_description: form.description || 'Milestone tracking item.',
+            message: `Hello ${assignedMember.name || 'Team Member'},\n\nA new task has been assigned to you by Dr. Hongxing Liu on the ERSL Lab Workplan:\n\nTask: ${form.title}\nDue Date: ${form.due_date || 'Not specified'}\nDetails: ${form.description || 'None'}\n\nPlease visit the ERSL Portal (https://naveen1098.github.io/ERSL/) to review and update your task progress.`,
+            recipients: `${assignedMember.email}, naveenpurushothaman1098@gmail.com, hongxing.liu@ua.edu`
+          }),
+        });
+        setNotificationStatus(`📧 Notification sent to ${assignedMember.name || assignedMember.email} (${assignedMember.email})! Task assigned successfully.`);
+      } catch {
+        // Non-blocking notification
+      }
+    }
+
+    setForm({ ...form, title: '', description: '', due_date: '' });
+    setIsSubmitting(false);
+    load();
   };
 
   const update = async (id: string, patch: Partial<Task>) => {
@@ -168,7 +236,133 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         </div>
       )}
 
+      {/* Notification and Error Alerts */}
+      {notificationStatus && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-3.5 text-xs font-bold flex items-center gap-2 animate-in fade-in">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>{notificationStatus}</span>
+        </div>
+      )}
       {error && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded p-2">{error}</p>}
+
+      {/* Admin Executive Summary: Team Member Progress Overview */}
+      {isAdmin && memberStats.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-gray-100 pb-3">
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="p-1 rounded bg-red-50 text-[#9E1B32]">
+                  <TrendingUp className="w-4 h-4" />
+                </span>
+                <h3 className="font-extrabold text-sm md:text-base text-slate-800">
+                  Lab Team Members Progress & Milestone Summary
+                </h3>
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Executive overview of task completion rates, active assignments, and pending milestones for Dr. Liu and administrators.
+              </p>
+            </div>
+            <button
+              onClick={() => setFilterOwner('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                filterOwner === 'all'
+                  ? 'bg-[#9E1B32] text-white shadow-xs'
+                  : 'bg-slate-100 text-gray-700 hover:bg-slate-200'
+              }`}
+            >
+              Show All Members ({tasks.length} tasks)
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {memberStats.map(stat => {
+              const isSelected = filterOwner === stat.profile.id;
+              const initials = (stat.profile.name || stat.profile.email).substring(0, 2).toUpperCase();
+              return (
+                <div
+                  key={stat.profile.id}
+                  onClick={() => setFilterOwner(stat.profile.id)}
+                  className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-between hover:shadow-md ${
+                    isSelected
+                      ? 'border-[#9E1B32] bg-red-50/20 ring-1 ring-[#9E1B32]/30 shadow-xs'
+                      : 'border-gray-150 bg-white hover:border-gray-300'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center space-x-2.5">
+                        <div className="w-8 h-8 rounded-full bg-[#9E1B32] text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                          {initials}
+                        </div>
+                        <div>
+                          <h4 className="font-extrabold text-xs text-slate-900 leading-tight">
+                            {stat.profile.name || stat.profile.email}
+                          </h4>
+                          <span className="text-[10px] text-gray-400 font-medium">
+                            {stat.profile.email}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                        {stat.profile.role}
+                      </span>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="mt-3.5 space-y-1">
+                      <div className="flex justify-between items-center text-[11px] font-bold">
+                        <span className="text-gray-600">Completion</span>
+                        <span className="text-[#9E1B32] font-black">{stat.percent}%</span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-gray-150">
+                        <div
+                          className="bg-emerald-600 h-2 rounded-full transition-all duration-500"
+                          style={{ width: `${stat.percent}%` }}
+                        ></div>
+                      </div>
+                    </div>
+
+                    {/* Task Breakdown Badges */}
+                    <div className="grid grid-cols-4 gap-1.5 text-center mt-3 text-[10px] font-bold">
+                      <div className="p-1.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-100">
+                        <span className="block text-xs font-black">{stat.completed}</span>
+                        <span>Done</span>
+                      </div>
+                      <div className="p-1.5 rounded bg-blue-50 text-blue-800 border border-blue-100">
+                        <span className="block text-xs font-black">{stat.inProgress}</span>
+                        <span>Active</span>
+                      </div>
+                      <div className="p-1.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                        <span className="block text-xs font-black">{stat.notStarted}</span>
+                        <span>Pending</span>
+                      </div>
+                      <div className="p-1.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                        <span className="block text-xs font-black">{stat.discuss}</span>
+                        <span>Discuss</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between text-[11px]">
+                    <span className="text-gray-500 font-semibold">
+                      {stat.total} Total Assigned
+                    </span>
+                    {stat.overdue > 0 ? (
+                      <span className="text-red-700 bg-red-50 border border-red-200 font-extrabold px-2 py-0.5 rounded-full text-[10px]">
+                        ⚠️ {stat.overdue} Overdue
+                      </span>
+                    ) : (
+                      <span className="text-emerald-700 font-bold text-[10px]">
+                        ✓ On Schedule
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Add Task Bar */}
       <form onSubmit={addTask} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 grid grid-cols-1 md:grid-cols-12 gap-3 text-xs items-end">

@@ -35,11 +35,55 @@ export const BoxFolders: React.FC<{ currentUser: User | null }> = ({ currentUser
   const [error, setError] = useState('');
   const [form, setForm] = useState({ name: '', description: '', share_url: '', visibility: 'private' as 'public' | 'private' });
 
+  const defaultBoxFolders: BoxFolder[] = [
+    {
+      id: 'box-pub-pdf',
+      name: 'ERSL Publications & Manuscripts PDF Vault',
+      description: 'Full-text peer-reviewed articles, author response letters, and high-res vector figures.',
+      share_url: 'https://ua.box.com/s/ersl-publications-pdf',
+      visibility: 'public'
+    },
+    {
+      id: 'box-field-raw',
+      name: 'Raw UAV LiDAR, Multispectral & ADCP River Survey Datasets',
+      description: 'High-volume point clouds, orthomosaics, and SonTek M9 ADCP hydrographic field logs.',
+      share_url: 'https://ua.box.com/s/ersl-raw-uav-field-data',
+      visibility: 'private'
+    },
+    {
+      id: 'box-[#teach-gym]',
+      name: 'GY 404/504 Teaching Materials & Lab Manuals',
+      description: 'Course syllabi, GEE lab guides, Python tutorials, and student dataset downloads.',
+      share_url: 'https://ua.box.com/s/ersl-teaching-materials',
+      visibility: 'public'
+    },
+    {
+      id: 'box-ciroh-noaa',
+      name: 'CIROH & NOAA National Water Center Project Deliverables',
+      description: 'Annual project progress reports, RS-FloodXDepth validation charts, and code archives.',
+      share_url: 'https://ua.box.com/s/ersl-ciroh-deliverables',
+      visibility: 'private'
+    },
+    {
+      id: 'box-geoai-weights',
+      name: 'Geospatial AI & SAM2 Machine Learning Model Weights',
+      description: 'Pre-trained PyTorch weights, river channel segmentation masks, and GEE scripts.',
+      share_url: 'https://ua.box.com/s/ersl-geoai-models',
+      visibility: 'private'
+    }
+  ];
+
   const load = useCallback(async () => {
-    if (!supabase) return;
+    if (!supabase) {
+      setFolders(defaultBoxFolders);
+      return;
+    }
     const { data, error: err } = await supabase.from('box_folders').select('*').order('created_at');
-    if (err) setError(err.message);
-    else setFolders((data || []) as BoxFolder[]);
+    if (err || !data || data.length === 0) {
+      setFolders(defaultBoxFolders);
+    } else {
+      setFolders(data as BoxFolder[]);
+    }
   }, []);
   useEffect(() => { load(); }, [load]);
 

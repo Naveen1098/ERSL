@@ -23,6 +23,7 @@ import {
 } from './types';
 import { newsItems } from './data/news';
 import { LoginModal } from './components/LoginModal';
+import { UpdatePasswordModal } from './components/UpdatePasswordModal';
 import { Workplan } from './components/Workplan';
 import { BoxFolders } from './components/BoxFolders';
 import { MemberManager } from './components/MemberManager';
@@ -74,6 +75,9 @@ export default function App() {
   });
 
   const [showSSOPopup, setShowSSOPopup] = useState(false);
+  const [showUpdatePasswordModal, setShowUpdatePasswordModal] = useState(() => {
+    return window.location.hash.includes('type=recovery') || window.location.hash.includes('access_token');
+  });
   const [editMode, setEditMode] = useState(false);
 
   // Database lists
@@ -369,7 +373,12 @@ export default function App() {
       else setCurrentUser(null);
     };
     supabase.auth.getSession().then(({ data }) => apply(data.session?.user.id));
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => { apply(session?.user.id); });
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setShowUpdatePasswordModal(true);
+      }
+      apply(session?.user.id);
+    });
     return () => sub.subscription.unsubscribe();
   }, []);
 
@@ -1180,7 +1189,16 @@ export default function App() {
                   <div>
                     <h4 className="text-xs font-bold text-gray-800">Google Scholar Academic Integration Hub</h4>
                     <p className="text-[11px] text-gray-500 mt-0.5">
-                      Sync directly from Dr. Hongxing Liu's verified Google Scholar profile (ID: <code className="font-mono bg-white px-1 py-0.2 rounded border border-gray-200 text-[#9E1B32]">X_o2Y0AAAAAJ</code>).
+                      Sync directly from Dr. Hongxing Liu's verified Google Scholar profile (ID:{' '}
+                      <a
+                        href="https://scholar.google.com/citations?user=GN_fGecAAAAJ"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-mono bg-white px-1.5 py-0.5 rounded border border-gray-200 text-[#9E1B32] font-bold hover:underline"
+                      >
+                        GN_fGecAAAAJ ↗
+                      </a>
+                      ).
                     </p>
                   </div>
                   <button 
@@ -1191,7 +1209,7 @@ export default function App() {
                     }`}
                   >
                     <span>🔄</span>
-                    <span>{isSyncingScholar ? 'Syncing Profile...' : 'Drag & Sync Scholar Profile'}</span>
+                    <span>{isSyncingScholar ? 'Syncing Profile...' : 'Sync Publications from Google Scholar'}</span>
                   </button>
                 </div>
 
@@ -2412,6 +2430,10 @@ export default function App() {
             setEditingItem(null);
           }}
         />
+      )}
+
+      {showUpdatePasswordModal && (
+        <UpdatePasswordModal onClose={() => setShowUpdatePasswordModal(false)} />
       )}
 
     </div>
