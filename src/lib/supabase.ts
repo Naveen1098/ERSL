@@ -50,7 +50,7 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
       };
       // Auto-upsert into profiles in background if table exists
       try {
-        supabase.from('profiles').upsert([fallbackProfile]).then(() => {}).catch(() => {});
+        Promise.resolve(supabase.from('profiles').upsert([fallbackProfile])).catch(() => {});
       } catch {}
       return fallbackProfile;
     }

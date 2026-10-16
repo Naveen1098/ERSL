@@ -13,6 +13,9 @@ interface State {
 }
 
 class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
+    super(props);
+  }
   public state: State = { hasError: false };
 
   public static getDerivedStateFromError(error: Error): State {
@@ -77,7 +80,7 @@ class ErrorBoundary extends Component<Props, State> {
         </div>
       );
     }
-    return this.props.children;
+    return (this as unknown as { props: Props }).props.children;
   }
 }
 

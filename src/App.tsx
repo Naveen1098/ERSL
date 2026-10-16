@@ -26,6 +26,7 @@ import { NewsModal } from './components/NewsModal';
 import { LoginModal } from './components/LoginModal';
 import { UpdatePasswordModal } from './components/UpdatePasswordModal';
 import { Workplan } from './components/Workplan';
+import { ReservoirProject } from './components/ReservoirProject';
 import { BoxFolders } from './components/BoxFolders';
 import { MemberManager } from './components/MemberManager';
 import { ProfessionalDevelopment } from './components/ProfessionalDevelopment';
@@ -545,7 +546,7 @@ export default function App() {
     }
     supabase?.auth.signOut();
     setCurrentUser(null);
-    setActiveTab(prev => (prev === 'workplan' || prev === 'admin' || prev === 'box') ? 'home' : prev);
+    setActiveTab(prev => (prev === 'workplan' || prev === 'admin' || prev === 'box' || prev === 'reservoir') ? 'home' : prev);
   };
 
   // Role modification inside Admin Panel (syncs with Active Directory)
@@ -2594,6 +2595,22 @@ export default function App() {
               <div className="bg-white p-12 rounded-xl border border-gray-100 text-center max-w-lg mx-auto shadow-sm space-y-4">
                 <Lock className="w-12 h-12 mx-auto text-[#9E1B32]" />
                 <p className="text-sm font-bold text-gray-800">Members only</p>
+                <button onClick={() => setShowSSOPopup(true)} className="bg-[#9E1B32] hover:bg-red-800 text-white text-xs font-bold py-2 px-6 rounded cursor-pointer">Log in</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* VIEW: RESERVOIR PROJECT (private) */}
+        {activeTab === 'reservoir' && (
+          <div>
+            {currentUser ? (
+              <ReservoirProject currentUser={currentUser} />
+            ) : (
+              <div className="bg-white p-12 rounded-xl border border-gray-100 text-center max-w-lg mx-auto shadow-sm space-y-4">
+                <Lock className="w-12 h-12 mx-auto text-[#9E1B32]" />
+                <p className="text-sm font-bold text-gray-800">Members only</p>
+                <p className="text-xs text-gray-500">The Reservoir Project tracking matrix is restricted to authorized ERSL lab researchers.</p>
                 <button onClick={() => setShowSSOPopup(true)} className="bg-[#9E1B32] hover:bg-red-800 text-white text-xs font-bold py-2 px-6 rounded cursor-pointer">Log in</button>
               </div>
             )}

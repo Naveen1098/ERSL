@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, LogIn, LogOut, Shield, FolderGit2, Menu, X, ChevronDown, UserCircle, BookOpen } from 'lucide-react';
+import { User, LogIn, LogOut, Shield, FolderGit2, Menu, X, ChevronDown, UserCircle, BookOpen, Waves } from 'lucide-react';
 
 interface UAHeaderProps {
   currentUser: { name: string; email: string; role: string; avatarUrl?: string } | null;
@@ -66,7 +66,8 @@ export const UAHeader: React.FC<UAHeaderProps> = ({
       { id: 'professional', label: 'Professional Development' },
       { id: 'teaching', label: 'Teaching Materials' },
       { id: 'bulletins', label: 'Lab Bulletins' },
-      { id: 'workplan', label: 'Work Plan' }
+      { id: 'workplan', label: 'Work Plan' },
+      { id: 'reservoir', label: 'Reservoir Project' }
     ] : []),
   ];
 
@@ -242,6 +243,17 @@ export const UAHeader: React.FC<UAHeaderProps> = ({
                     >
                       <BookOpen className="w-4 h-4 text-[#9E1B32]" />
                       <span>Professional Development Vault</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        onTabChange('reservoir');
+                        setProfileDropdownOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-cyan-50/50 hover:text-cyan-700 transition-colors flex items-center space-x-2"
+                    >
+                      <Waves className="w-4 h-4 text-cyan-600" />
+                      <span>Reservoir Project</span>
                     </button>
 
                     {currentUser.role === 'Admin' && (
