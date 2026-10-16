@@ -1389,7 +1389,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               <tr className="bg-slate-100/80 text-slate-700 text-xs font-bold border-b border-slate-200">
                 
                 {/* Column 1: Watershed */}
-                <th className="py-3 px-4 min-w-[240px] sticky left-0 z-20 bg-slate-100 border-r border-slate-200">
+                <th className="py-3.5 px-4 min-w-[280px] max-w-[320px] w-[300px] sticky left-0 z-30 bg-slate-100 border-r-2 border-slate-300 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.08)]">
                   <div className="flex items-center gap-1.5">
                     <Waves className="w-4 h-4 text-[#9E1B32]" />
                     <span>Watershed / Basin (Row)</span>
@@ -1484,7 +1484,15 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                         }`}
                       >
                         {/* Column 1: Watershed Info (Sticky with Expand/Collapse toggle) */}
-                        <td className="py-3.5 px-4 sticky left-0 z-10 bg-inherit border-r border-slate-200">
+                        <td 
+                          className={`py-3.5 px-4 min-w-[280px] max-w-[320px] w-[300px] sticky left-0 z-20 border-r-2 border-slate-300 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.08)] transition-colors ${
+                            isHistorical 
+                              ? 'bg-[#fffbeb] hover:bg-[#fef3c7]' 
+                              : index % 2 === 0 
+                                ? 'bg-white hover:bg-slate-50' 
+                                : 'bg-[#f8fafc] hover:bg-slate-100'
+                          }`}
+                        >
                           <div className="flex items-start gap-2">
                             <button
                               type="button"
@@ -1757,7 +1765,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               <tr className="bg-slate-900 text-white font-extrabold border-t-2 border-[#9E1B32] shadow-inner text-xs">
                 
                 {/* Column 1: Grand Total Label (Sticky) */}
-                <td className="py-4 px-4 sticky left-0 z-20 bg-slate-900 border-r border-slate-700">
+                <td className="py-4 px-4 min-w-[280px] max-w-[320px] w-[300px] sticky left-0 z-30 bg-[#0f172a] border-r-2 border-slate-700 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.25)]">
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-1.5 text-white">
                       <BarChart3 className="w-4 h-4 text-cyan-400" />
