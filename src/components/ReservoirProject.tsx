@@ -29,6 +29,9 @@ import {
   RotateCcw,
   RefreshCw,
   Sparkles,
+  Trophy,
+  PartyPopper,
+  Heart,
   Layers,
   FileSpreadsheet
 } from 'lucide-react';
@@ -348,6 +351,50 @@ const getInitialReservoirData = (): ReservoirProjectState => {
   };
 };
 
+// Sweet, diverse congratulatory templates with random generation
+const CONGRATULATION_TEMPLATES = [
+  (name: string, ws: string, count: number) => ({
+    headline: "🎉 Outstanding Milestone Reached!",
+    subhead: "Precision & Dedication at its Finest",
+    body: `Incredible work, ${name}! You have successfully completed all ${count.toLocaleString()} assigned reservoirs in the ${ws}. Dr. Liu and the entire ERSL research group celebrate your outstanding dedication to remote sensing excellence!`
+  }),
+  (name: string, ws: string, count: number) => ({
+    headline: "🌟 Phenomenal Achievement!",
+    subhead: "Target Crushed with 100% Precision",
+    body: `Bravo, ${name}! You've powered through ${count.toLocaleString()} reservoirs in the ${ws}. Your high-standard polygon delineation brings our national surface water database one giant leap closer to completion!`
+  }),
+  (name: string, ws: string, count: number) => ({
+    headline: "🏆 Hats Off to You, Scholar!",
+    subhead: "A Huge Win for the ERSL Project",
+    body: `Sensational performance, ${name}! Reaching 100% completion on ${count.toLocaleString()} water bodies in the ${ws} reflects true scientific diligence. Thank you for your tireless contribution to our lab!`
+  }),
+  (name: string, ws: string, count: number) => ({
+    headline: "🌊 Hydrological Mastery Unlocked!",
+    subhead: "Flawless Watershed Processing",
+    body: `Warmest congratulations, ${name}! The ${ws} data processing (${count.toLocaleString()} reservoirs) is officially conquered. Keep up this magnificent momentum, your hard work shines bright!`
+  }),
+  (name: string, ws: string, count: number) => ({
+    headline: "🚀 Mission Accomplished!",
+    subhead: "Ready for Dr. Liu's Final Verification",
+    body: `Fantastic job, ${name}! All ${count.toLocaleString()} reservoirs assigned to you in the ${ws} are completed and staged for PI review. The entire lab appreciates your speedy, high-quality analysis!`
+  }),
+  (name: string, ws: string, count: number) => ({
+    headline: "✨ Pure Brilliance!",
+    subhead: "Exemplary Research Diligence",
+    body: `What a wonderful milestone, ${name}! You've finished your entire quota of ${count.toLocaleString()} reservoirs in the ${ws}. Celebrating your hard work, precision, and passion for Earth Observation!`
+  }),
+  (name: string, ws: string, count: number) => ({
+    headline: "💎 Gold Standard Remote Sensing!",
+    subhead: "100% Delineation Target Achieved",
+    body: `Huge cheers to ${name}! Every single one of your ${count.toLocaleString()} assigned reservoirs in the ${ws} has been mapped. Your scientific perseverance makes ERSL immensely proud!`
+  }),
+  (name: string, ws: string, count: number) => ({
+    headline: "🎖️ Remarkable Dedication!",
+    subhead: "Teamwork & Excellence in GeoAI",
+    body: `Heartiest congratulations, ${name}! You hit the bullseye with ${count.toLocaleString()} reservoirs in the ${ws}. Take a bow for this fantastic research milestone!`
+  })
+];
+
 export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser }) => {
   const userEmail = (currentUser?.email || '').toLowerCase().trim();
   const isEmailAdmin = ADMIN_EMAILS.some(e => e.toLowerCase().trim() === userEmail);
@@ -388,6 +435,29 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     setIsEditWatershedModalOpen(false);
     setEditingWatershed(null);
     showToast(`Watershed "${editingWatershed.name}" updated successfully!`);
+  };
+
+  // State: Sweet randomized congratulations popup modal
+  const [congratsModal, setCongratsModal] = useState<{
+    isOpen: boolean;
+    memberName: string;
+    watershedName: string;
+    finishedCount: number;
+    message: { headline: string; subhead: string; body: string };
+  } | null>(null);
+
+  const triggerCongrats = (memberName: string, watershedName: string, finishedCount: number) => {
+    const randomIndex = Math.floor(Math.random() * CONGRATULATION_TEMPLATES.length);
+    const selectedTemplate = CONGRATULATION_TEMPLATES[randomIndex];
+    const message = selectedTemplate(memberName, watershedName, finishedCount);
+
+    setCongratsModal({
+      isOpen: true,
+      memberName,
+      watershedName,
+      finishedCount,
+      message
+    });
   };
 
   // Load state from localStorage or use defaults
@@ -694,9 +764,27 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       })
     }));
 
+    const wasAlreadyCompleted = 
+      selectedCell.assignment.assignedCount > 0 && 
+      selectedCell.assignment.finishedCount >= selectedCell.assignment.assignedCount;
+    const isNowCompleted = 
+      updated.assignedCount > 0 && 
+      updated.finishedCount >= updated.assignedCount;
+
+    const savedMemberName = selectedCell.memberName;
+    const savedWatershedName = selectedCell.watershedName;
+    const savedFinishedCount = updated.finishedCount;
+
     setIsCellModalOpen(false);
     setSelectedCell(null);
-    showToast(`Saved progress for ${selectedCell.watershedName} (${selectedCell.memberName})!`);
+    showToast(`Saved progress for ${savedWatershedName} (${savedMemberName})!`);
+
+    // Trigger sweet random congratulations popup when target is achieved!
+    if (isNowCompleted && !wasAlreadyCompleted) {
+      setTimeout(() => {
+        triggerCongrats(savedMemberName, savedWatershedName, savedFinishedCount);
+      }, 250);
+    }
   };
 
   // Dr. Liu 1-Click Verification
@@ -1597,9 +1685,20 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                                 />
                               </div>
 
-                              {/* Due Date & Status Badge */}
+                              {/* Due Date & Status Badge with click-to-congratulate */}
                               <div className="flex items-center justify-between pt-0.5">
-                                {getStatusBadge(as)}
+                                <div
+                                  onClick={(e) => {
+                                    if (cellPct >= 100) {
+                                      e.stopPropagation();
+                                      triggerCongrats(person?.name || mId, ws.name, as.finishedCount);
+                                    }
+                                  }}
+                                  className={cellPct >= 100 ? "cursor-pointer hover:scale-105 transition-transform" : ""}
+                                  title={cellPct >= 100 ? "Target Complete! Click to view sweet celebration" : undefined}
+                                >
+                                  {getStatusBadge(as)}
+                                </div>
                                 
                                 {as.dueDate && (
                                   <span className={`text-[10px] font-medium flex items-center gap-1 ${isPastDue ? 'text-rose-600 font-bold' : 'text-slate-500'}`}>
@@ -2475,6 +2574,97 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               </div>
             </form>
 
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL: SWEET RANDOM CONGRATULATIONS POPUP FOR COMPLETED TARGETS
+          ========================================================================= */}
+      {congratsModal && congratsModal.isOpen && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white rounded-3xl shadow-2xl border-2 border-amber-300 max-w-md w-full overflow-hidden text-center animate-in zoom-in-90 duration-300 relative">
+            
+            {/* Top decorative celebration pattern banner */}
+            <div className="bg-gradient-to-r from-[#9E1B32] via-amber-600 to-[#9E1B32] p-6 text-white relative overflow-hidden">
+              <div className="absolute inset-0 opacity-15 pointer-events-none flex items-center justify-around">
+                <Sparkles className="w-20 h-20 text-yellow-300 animate-pulse" />
+                <Trophy className="w-24 h-24 text-amber-200" />
+                <PartyPopper className="w-20 h-20 text-yellow-300 animate-pulse" />
+              </div>
+
+              <div className="relative z-10 space-y-1">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest bg-amber-400 text-slate-900 shadow-md">
+                  <Award className="w-3.5 h-3.5 text-slate-900" />
+                  Target Accomplished!
+                </span>
+                <h3 className="text-xl sm:text-2xl font-black text-white drop-shadow-sm mt-2">
+                  {congratsModal.message.headline}
+                </h3>
+                <p className="text-xs text-amber-100 font-semibold">
+                  {congratsModal.message.subhead}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setCongratsModal(null)}
+                className="absolute top-4 right-4 text-white/80 hover:text-white p-1 rounded-full transition-colors cursor-pointer"
+                title="Close celebration"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5 text-left">
+              
+              {/* Member badge lockup */}
+              <div className="flex items-center gap-3.5 p-3.5 bg-gradient-to-r from-amber-50 to-red-50 rounded-2xl border border-amber-200/70 shadow-xs">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-[#9E1B32] to-amber-600 text-white flex items-center justify-center font-black text-base shadow-md ring-2 ring-amber-300 shrink-0">
+                  {congratsModal.memberName.split(' ').map(n => n[0]).join('').slice(0, 2) || 'UA'}
+                </div>
+                <div>
+                  <h4 className="text-sm font-extrabold text-slate-900 leading-tight">
+                    {congratsModal.memberName}
+                  </h4>
+                  <p className="text-xs text-[#9E1B32] font-semibold mt-0.5">
+                    {congratsModal.watershedName}
+                  </p>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.2 rounded-full mt-1">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                    {congratsModal.finishedCount.toLocaleString()} Reservoirs (100% Target Met)
+                  </span>
+                </div>
+              </div>
+
+              {/* Sweet randomized message paragraph */}
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 text-xs text-slate-700 leading-relaxed font-medium space-y-2">
+                <p>
+                  {congratsModal.message.body}
+                </p>
+                <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-500 font-semibold">
+                  <span className="flex items-center gap-1 text-[#9E1B32]">
+                    <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
+                    From Dr. Hongxing Liu & ERSL Lab
+                  </span>
+                  <span>Keep Shining! ✨</span>
+                </div>
+              </div>
+
+              {/* Dismiss / Celebrate button */}
+              <div className="pt-1 flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => setCongratsModal(null)}
+                  className="w-full py-3 px-6 rounded-xl bg-gradient-to-r from-[#9E1B32] to-red-800 hover:from-red-800 hover:to-red-900 text-white font-extrabold text-xs shadow-lg shadow-red-900/20 transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <PartyPopper className="w-4 h-4 text-amber-300" />
+                  <span>Celebrate & Continue Research</span>
+                </button>
+              </div>
+
+            </div>
           </div>
         </div>
       )}
