@@ -27,6 +27,7 @@ import {
   X, 
   ArrowUpRight, 
   RotateCcw,
+  RefreshCw,
   Sparkles,
   Layers,
   FileSpreadsheet
@@ -840,12 +841,21 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     }));
   };
 
-  // Reset to ERSL Default Dataset
-  const handleResetData = () => {
-    if (confirm('Reset to default ERSL Reservoir Project watershed data? This will restore initial baselines and sample assignments.')) {
-      const initial = getInitialReservoirData();
-      setData(initial);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
+  // Refresh & Show all latest admin-edited changes from storage (never resets to synthetic data)
+  const handleRefreshEditedData = () => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setData(parsed);
+      }
+      setSearchQuery('');
+      setSelectedMilestone('all');
+      setFilterMember('all');
+      showToast('Refreshed: Displaying all latest admin-edited changes');
+    } catch (e) {
+      console.error('Failed to reload data', e);
+      showToast('Error refreshing data');
     }
   };
 
@@ -1035,11 +1045,13 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                 </button>
 
                 <button
-                  onClick={handleResetData}
-                  className="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white text-xs transition-all cursor-pointer"
-                  title="Reset to default ERSL watershed dataset"
+                  type="button"
+                  onClick={handleRefreshEditedData}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold transition-all border border-slate-700 shadow-sm cursor-pointer"
+                  title="Refresh view to display all latest edited changes"
                 >
-                  <RotateCcw className="w-4 h-4" />
+                  <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Refresh Changes</span>
                 </button>
               </>
             )}
