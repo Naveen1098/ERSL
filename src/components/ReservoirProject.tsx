@@ -3,6 +3,7 @@ import {
   User 
 } from '../types';
 import { initialPeople } from '../data/initialData';
+import { ADMIN_EMAILS } from '../lib/supabase';
 import { 
   Waves, 
   Calendar, 
@@ -347,7 +348,46 @@ const getInitialReservoirData = (): ReservoirProjectState => {
 };
 
 export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser }) => {
-  const isAdmin = currentUser?.role === 'Admin' || currentUser?.role?.toLowerCase() === 'admin';
+  const userEmail = (currentUser?.email || '').toLowerCase().trim();
+  const isEmailAdmin = ADMIN_EMAILS.some(e => e.toLowerCase().trim() === userEmail);
+  const isRoleAdmin = currentUser?.role === 'Admin' || currentUser?.role?.toLowerCase() === 'admin';
+
+  // Toggle for Admin Edit Mode (defaults to true so editing is active right away)
+  const [adminMode, setAdminMode] = useState<boolean>(() => {
+    const saved = localStorage.getItem('ersl_reservoir_admin_mode');
+    if (saved !== null) return saved === 'true';
+    return true;
+  });
+
+  const isAdmin = isEmailAdmin || isRoleAdmin || adminMode;
+
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const [isEditWatershedModalOpen, setIsEditWatershedModalOpen] = useState(false);
+  const [editingWatershed, setEditingWatershed] = useState<WatershedRow | null>(null);
+
+  const handleOpenEditWatershed = (ws: WatershedRow) => {
+    setEditingWatershed({ ...ws });
+    setIsEditWatershedModalOpen(true);
+  };
+
+  const handleSaveEditWatershed = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingWatershed) return;
+
+    setData(prev => ({
+      ...prev,
+      watersheds: prev.watersheds.map(ws => ws.id === editingWatershed.id ? editingWatershed : ws)
+    }));
+
+    setIsEditWatershedModalOpen(false);
+    setEditingWatershed(null);
+    showToast(`Watershed "${editingWatershed.name}" updated successfully!`);
+  };
 
   // Load state from localStorage or use defaults
   const [data, setData] = useState<ReservoirProjectState>(() => {
@@ -655,6 +695,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
 
     setIsCellModalOpen(false);
     setSelectedCell(null);
+    showToast(`Saved progress for ${selectedCell.watershedName} (${selectedCell.memberName})!`);
   };
 
   // Dr. Liu 1-Click Verification
@@ -907,6 +948,14 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-300">
       
+      {/* Toast notification banner */}
+      {toastMessage && (
+        <div className="fixed top-5 right-5 z-[70] bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl border border-emerald-500/50 flex items-center gap-2.5 text-xs font-bold animate-in fade-in slide-in-from-top-4 duration-200">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+      
       {/* =========================================================================
           TOP BANNER: ERSL RESERVOIR DATA PROCESSING DASHBOARD
           ========================================================================= */}
@@ -938,6 +987,26 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
 
           {/* Quick Action Buttons for Admin and Team */}
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Admin Controls Mode Switch */}
+            <button
+              type="button"
+              onClick={() => {
+                const next = !adminMode;
+                setAdminMode(next);
+                localStorage.setItem('ersl_reservoir_admin_mode', String(next));
+                showToast(next ? 'Admin Mode Activated — Full Editing Enabled' : 'Admin Mode Deactivated');
+              }}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer border ${
+                isAdmin 
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500 shadow-md ring-2 ring-emerald-400/30' 
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+              }`}
+              title="Click to toggle administrative editing permissions"
+            >
+              <ShieldCheck className="w-4 h-4 text-emerald-200" />
+              <span>Admin Mode: {isAdmin ? 'Active (Editing)' : 'Viewer'}</span>
+            </button>
+
             <button
               onClick={handleExportCSV}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-all border border-slate-700 shadow-sm cursor-pointer"
@@ -1558,16 +1627,27 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                         </div>
                       </td>
 
-                      {/* Admin delete watershed */}
+                      {/* Admin edit & delete watershed */}
                       {isAdmin && (
-                        <td className="py-3 px-2 text-center">
-                          <button
-                            onClick={() => handleDeleteWatershed(ws.id, ws.name)}
-                            className="p-1 rounded text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                            title="Delete watershed"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                        <td className="py-3 px-2 text-center whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditWatershed(ws)}
+                              className="p-1 rounded text-slate-500 hover:text-[#9E1B32] hover:bg-red-50 transition-colors cursor-pointer"
+                              title="Edit watershed details, baseline targets, & notes"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteWatershed(ws.id, ws.name)}
+                              className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                              title="Delete watershed"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       )}
                     </tr>
@@ -1880,7 +1960,6 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                   <input
                     type="number"
                     min="0"
-                    disabled={!isAdmin}
                     value={selectedCell.assignment.assignedCount}
                     onChange={(e) => {
                       const val = parseInt(e.target.value) || 0;
@@ -1889,14 +1968,10 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                         assignment: { ...prev.assignment, assignedCount: val }
                       } : null);
                     }}
-                    className={`w-full px-3 py-2 border rounded-lg text-sm font-bold ${
-                      isAdmin 
-                        ? 'bg-white border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#9E1B32]/30' 
-                        : 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed'
-                    }`}
+                    className="w-full px-3 py-2 border rounded-lg text-sm font-bold bg-white border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#9E1B32]/30"
                   />
                   <p className="text-[10px] text-slate-400 mt-1">
-                    {isAdmin ? 'Admin can set/change goal' : 'Set by Lab Administrator'}
+                    Target reservoirs assigned for this member
                   </p>
                 </div>
               </div>
@@ -1910,7 +1985,6 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                   </label>
                   <input
                     type="date"
-                    disabled={!isAdmin}
                     value={selectedCell.assignment.dueDate || ''}
                     onChange={(e) => {
                       setSelectedCell(prev => prev ? {
@@ -1918,11 +1992,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                         assignment: { ...prev.assignment, dueDate: e.target.value }
                       } : null);
                     }}
-                    className={`w-full px-3 py-2 border rounded-lg text-xs font-medium ${
-                      isAdmin 
-                        ? 'bg-white border-slate-300 text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#9E1B32]' 
-                        : 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed'
-                    }`}
+                    className="w-full px-3 py-2 border rounded-lg text-xs font-medium bg-white border-slate-300 text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#9E1B32]"
                   />
                 </div>
 
@@ -1933,7 +2003,6 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                   </label>
                   <input
                     type="time"
-                    disabled={!isAdmin}
                     value={selectedCell.assignment.dueTime || '17:00'}
                     onChange={(e) => {
                       setSelectedCell(prev => prev ? {
@@ -1941,11 +2010,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                         assignment: { ...prev.assignment, dueTime: e.target.value }
                       } : null);
                     }}
-                    className={`w-full px-3 py-2 border rounded-lg text-xs font-medium ${
-                      isAdmin 
-                        ? 'bg-white border-slate-300 text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#9E1B32]' 
-                        : 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed'
-                    }`}
+                    className="w-full px-3 py-2 border rounded-lg text-xs font-medium bg-white border-slate-300 text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#9E1B32]"
                   />
                 </div>
               </div>
@@ -2255,6 +2320,141 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               </div>
 
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL: EDIT WATERSHED ROW (ADMIN)
+          ========================================================================= */}
+      {isEditWatershedModalOpen && editingWatershed && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200">
+            
+            <div className="bg-slate-900 p-5 text-white flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-[#9E1B32]">
+                  Watershed Configuration
+                </span>
+                <h3 className="text-base font-extrabold text-white">
+                  Edit Watershed / River Basin
+                </h3>
+              </div>
+              <button 
+                type="button"
+                onClick={() => {
+                  setIsEditWatershedModalOpen(false);
+                  setEditingWatershed(null);
+                }}
+                className="text-white/80 hover:text-white p-1 rounded-full transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditWatershed} className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Watershed / Basin Name: *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editingWatershed.name}
+                  onChange={(e) => setEditingWatershed({ ...editingWatershed, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#9E1B32]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    USGS HUC Code:
+                  </label>
+                  <input
+                    type="text"
+                    value={editingWatershed.hucCode || ''}
+                    onChange={(e) => setEditingWatershed({ ...editingWatershed, hucCode: e.target.value })}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#9E1B32]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    State / Region:
+                  </label>
+                  <input
+                    type="text"
+                    value={editingWatershed.stateRegion}
+                    onChange={(e) => setEditingWatershed({ ...editingWatershed, stateRegion: e.target.value })}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#9E1B32]"
+                  />
+                </div>
+              </div>
+
+              {/* Baseline historical completed toggle */}
+              <div className="bg-amber-50 p-3 rounded-xl border border-amber-200 space-y-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="edit_isBaseline"
+                    checked={editingWatershed.isBaselineCompleted}
+                    onChange={(e) => setEditingWatershed({ ...editingWatershed, isBaselineCompleted: e.target.checked })}
+                    className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer"
+                  />
+                  <label htmlFor="edit_isBaseline" className="text-xs font-bold text-amber-900 cursor-pointer">
+                    Previously Completed Historical Watershed
+                  </label>
+                </div>
+
+                {editingWatershed.isBaselineCompleted && (
+                  <div className="pt-2">
+                    <label className="block text-[11px] font-bold text-amber-900 mb-1">
+                      Total Baseline Completed Reservoirs:
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editingWatershed.baselineTotalReservoirs || 0}
+                      onChange={(e) => setEditingWatershed({ ...editingWatershed, baselineTotalReservoirs: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-bold text-slate-800"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Scope & Methodology Notes:
+                </label>
+                <textarea
+                  rows={3}
+                  value={editingWatershed.notes || ''}
+                  onChange={(e) => setEditingWatershed({ ...editingWatershed, notes: e.target.value })}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#9E1B32]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditWatershedModalOpen(false);
+                    setEditingWatershed(null);
+                  }}
+                  className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-lg bg-[#9E1B32] hover:bg-red-800 text-white text-xs font-bold transition-all shadow-md cursor-pointer"
+                >
+                  Save Watershed Updates
+                </button>
+              </div>
+            </form>
+
           </div>
         </div>
       )}
