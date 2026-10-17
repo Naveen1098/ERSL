@@ -885,15 +885,27 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
         if (!hasDate) return false;
       }
 
-      // Member filter
+      // Member filter: only show watersheds where this member has assigned or completed reservoirs
       if (filterMember !== 'all') {
-        const hasMember = ws.assignments[filterMember] !== undefined;
-        if (!hasMember) return false;
+        const as = ws.assignments[filterMember];
+        if (!as) return false;
+        // If not historical baseline, only show rows where member has assigned or finished count
+        if (!ws.isBaselineCompleted && as.assignedCount === 0 && as.finishedCount === 0) {
+          return false;
+        }
       }
 
       return true;
     });
   }, [data.watersheds, searchQuery, selectedMilestone, filterMember]);
+
+  // Columns to display based on member filter
+  const displayedMemberIds = useMemo(() => {
+    if (filterMember === 'all') {
+      return data.activeMemberIds;
+    }
+    return data.activeMemberIds.filter(id => id === filterMember);
+  }, [data.activeMemberIds, filterMember]);
 
   // Track which rows are expanded to view details
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
@@ -908,7 +920,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
   // Calculate Column Totals for the bottom Grand Total row (Sum of Total Assigned / Total Completed)
   const columnTotals = useMemo(() => {
     const memberTotals: Record<string, { finished: number; assigned: number }> = {};
-    data.activeMemberIds.forEach(mId => {
+    displayedMemberIds.forEach(mId => {
       memberTotals[mId] = { finished: 0, assigned: 0 };
     });
 
@@ -919,7 +931,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       let rowFinished = 0;
       let rowAssigned = 0;
 
-      data.activeMemberIds.forEach(mId => {
+      displayedMemberIds.forEach(mId => {
         const as = ws.assignments[mId];
         if (as) {
           memberTotals[mId].finished += as.finishedCount || 0;
@@ -929,7 +941,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
         }
       });
 
-      if (ws.isBaselineCompleted && ws.baselineTotalReservoirs) {
+      if (filterMember === 'all' && ws.isBaselineCompleted && ws.baselineTotalReservoirs) {
         grandFinished += ws.baselineTotalReservoirs;
         grandAssigned += ws.baselineTotalReservoirs;
       } else {
@@ -946,7 +958,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       grandAssigned,
       grandPct
     };
-  }, [filteredWatersheds, data.activeMemberIds]);
+  }, [filteredWatersheds, displayedMemberIds, filterMember]);
 
   // Open Cell Editor
   const handleOpenCell = (ws: WatershedRow, memberId: string) => {
@@ -1533,15 +1545,20 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               const person = memberOptions.find(p => p.id === mId);
               const pct = metric && metric.assigned > 0 ? Math.round((metric.finished / metric.assigned) * 100) : 0;
               const isCurrentUser = currentUser?.email === person?.email || currentUser?.id === mId;
+              const isSelected = filterMember === mId;
 
               return (
                 <div 
                   key={mId} 
-                  className={`p-3.5 rounded-lg border transition-all ${
-                    isCurrentUser 
-                      ? 'border-[#9E1B32]/40 bg-red-50/20 shadow-sm' 
-                      : 'border-slate-100 bg-slate-50/60 hover:bg-white'
+                  onClick={() => setFilterMember(filterMember === mId ? 'all' : mId)}
+                  className={`p-3.5 rounded-lg border transition-all cursor-pointer ${
+                    isSelected 
+                      ? 'border-[#9E1B32] ring-2 ring-[#9E1B32]/30 bg-red-50/50 shadow-md' 
+                      : isCurrentUser 
+                        ? 'border-[#9E1B32]/40 bg-red-50/20 shadow-sm hover:border-[#9E1B32]' 
+                        : 'border-slate-100 bg-slate-50/60 hover:bg-white hover:border-slate-300'
                   }`}
+                  title={isSelected ? "Click to clear filter and show all members" : `Click to filter table for ${person?.name || mId}`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
@@ -1708,11 +1725,17 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
         {/* Table Header Info */}
         <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h2 className="text-sm font-black text-slate-900 tracking-wide uppercase flex items-center gap-2">
+            <h2 className="text-sm font-black text-slate-900 tracking-wide uppercase flex items-center gap-2 flex-wrap">
               <span>Watershed Processing Progress Matrix</span>
               <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
                 {filteredWatersheds.length} Watersheds
               </span>
+              {filterMember !== 'all' && (
+                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-[#9E1B32] text-white flex items-center gap-1">
+                  <Users className="w-3 h-3" />
+                  Focused on: {memberOptions.find(p => p.id === filterMember)?.name || filterMember}
+                </span>
+              )}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
               Click on any member cell to view details, update finished counts, or adjust assigned deadlines.
@@ -1732,6 +1755,25 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
           </div>
         </div>
 
+        {/* Focused member banner if filtering a specific member */}
+        {filterMember !== 'all' && (
+          <div className="px-4 py-2.5 bg-red-50/80 border-b border-red-200 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#9E1B32] animate-pulse"></span>
+              <span className="text-slate-800">
+                Focused Member View: Showing columns and workloads for <strong className="text-[#9E1B32] font-black">{memberOptions.find(p => p.id === filterMember)?.name || filterMember}</strong>
+              </span>
+            </div>
+            <button
+              onClick={() => setFilterMember('all')}
+              className="text-xs font-bold text-[#9E1B32] hover:text-red-800 hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+              Reset to All Members
+            </button>
+          </div>
+        )}
+
         {/* The Scrollable Responsive Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -1746,8 +1788,8 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                   </div>
                 </th>
 
-                {/* Columns 2 to N: Team Members (Dynamic & Expandable) */}
-                {data.activeMemberIds.map((mId) => {
+                {/* Columns 2 to N: Team Members (Dynamic & Filterable) */}
+                {displayedMemberIds.map((mId) => {
                   const person = memberOptions.find(p => p.id === mId);
                   const isCurrent = currentUser?.email === person?.email || currentUser?.id === mId;
 
@@ -1783,11 +1825,11 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                   );
                 })}
 
-                {/* Last Column: Total (Aggregate for the watershed) */}
+                {/* Last Column: Total (Aggregate for the watershed or selected member) */}
                 <th className="py-3 px-4 min-w-[180px] bg-slate-100 text-slate-900 font-black text-xs text-right">
                   <div className="flex items-center justify-end gap-1.5">
                     <BarChart3 className="w-4 h-4 text-emerald-600" />
-                    <span>Total Reservoirs</span>
+                    <span>{filterMember === 'all' ? 'Total Reservoirs' : 'Member Total'}</span>
                   </div>
                 </th>
 
@@ -1803,24 +1845,32 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
             <tbody className="divide-y divide-slate-200 text-xs">
               {filteredWatersheds.length === 0 ? (
                 <tr>
-                  <td colSpan={data.activeMemberIds.length + (isAdmin ? 3 : 2)} className="py-12 text-center text-slate-400 font-medium">
+                  <td colSpan={displayedMemberIds.length + (isAdmin ? 3 : 2)} className="py-12 text-center text-slate-400 font-medium">
                     No watersheds found matching current filters.
                   </td>
                 </tr>
               ) : (
                 filteredWatersheds.map((ws, index) => {
-                  // Calculate row total
+                  // Calculate row total (either for all members or for the focused member)
                   let rowFinished = 0;
                   let rowAssigned = 0;
 
-                  (Object.values(ws.assignments) as ReservoirCellAssignment[]).forEach(as => {
-                    rowFinished += as.finishedCount || 0;
-                    rowAssigned += as.assignedCount || 0;
-                  });
+                  if (filterMember !== 'all') {
+                    const as = ws.assignments[filterMember];
+                    if (as) {
+                      rowFinished = as.finishedCount || 0;
+                      rowAssigned = as.assignedCount || 0;
+                    }
+                  } else {
+                    (Object.values(ws.assignments) as ReservoirCellAssignment[]).forEach(as => {
+                      rowFinished += as.finishedCount || 0;
+                      rowAssigned += as.assignedCount || 0;
+                    });
 
-                  if (ws.isBaselineCompleted && ws.baselineTotalReservoirs) {
-                    rowFinished = ws.baselineTotalReservoirs;
-                    rowAssigned = ws.baselineTotalReservoirs;
+                    if (ws.isBaselineCompleted && ws.baselineTotalReservoirs) {
+                      rowFinished = ws.baselineTotalReservoirs;
+                      rowAssigned = ws.baselineTotalReservoirs;
+                    }
                   }
 
                   const rowPct = rowAssigned > 0 ? Math.round((rowFinished / rowAssigned) * 100) : 0;
@@ -1887,8 +1937,8 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                           </div>
                         </td>
 
-                      {/* Middle Columns: Assigned Members */}
-                      {data.activeMemberIds.map((mId) => {
+                      {/* Middle Columns: Assigned Members (filtered or all) */}
+                      {displayedMemberIds.map((mId) => {
                         const as = ws.assignments[mId];
                         const person = memberOptions.find(p => p.id === mId);
                         const isCurrent = currentUser?.email === person?.email || currentUser?.id === mId;
@@ -2036,7 +2086,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                     {/* Expandable Accordion Sub-row with Details */}
                     {expandedRows[ws.id] && (
                       <tr className="bg-slate-50/90 border-b border-slate-200 text-xs">
-                        <td colSpan={data.activeMemberIds.length + (isAdmin ? 3 : 2)} className="p-4 pl-10">
+                        <td colSpan={displayedMemberIds.length + (isAdmin ? 3 : 2)} className="p-4 pl-10">
                           <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs space-y-3">
                             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
                               <div className="flex items-center gap-2">
@@ -2062,7 +2112,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
 
                             {/* Member assignment sub-cards */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1">
-                              {data.activeMemberIds.map(mId => {
+                              {displayedMemberIds.map(mId => {
                                 const as = ws.assignments[mId];
                                 const person = memberOptions.find(p => p.id === mId);
                                 if (!as) return null;
@@ -2103,7 +2153,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               {isAdmin && (
                 <tr className="bg-slate-50/60 hover:bg-slate-100/60 transition-colors">
                   <td 
-                    colSpan={data.activeMemberIds.length + (isAdmin ? 3 : 2)} 
+                    colSpan={displayedMemberIds.length + (isAdmin ? 3 : 2)} 
                     className="py-3 px-4 text-center border-t border-dashed border-slate-300"
                   >
                     <button
@@ -2131,17 +2181,23 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                     <div className="flex items-center gap-1.5 text-white">
                       <BarChart3 className="w-4 h-4 text-cyan-400" />
                       <span className="font-black tracking-wide uppercase text-xs">
-                        Grand Total (All Watersheds)
+                        {filterMember === 'all' 
+                          ? 'Grand Total (All Watersheds)' 
+                          : `Total for ${memberOptions.find(p => p.id === filterMember)?.name || 'Member'}`
+                        }
                       </span>
                     </div>
                     <p className="text-[10px] text-slate-400 font-normal">
-                      Sum across {filteredWatersheds.length} watershed rows
+                      {filterMember === 'all'
+                        ? `Sum across ${filteredWatersheds.length} watershed rows`
+                        : `Sum across ${filteredWatersheds.length} assigned watersheds`
+                      }
                     </p>
                   </div>
                 </td>
 
                 {/* Member Columns: Sum of Total Completed / Assigned for each member */}
-                {data.activeMemberIds.map(mId => {
+                {displayedMemberIds.map(mId => {
                   const mTot = columnTotals.memberTotals[mId] || { finished: 0, assigned: 0 };
                   const mPct = mTot.assigned > 0 ? Math.round((mTot.finished / mTot.assigned) * 100) : 0;
 
