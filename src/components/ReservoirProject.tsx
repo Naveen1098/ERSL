@@ -417,24 +417,134 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
 
   const [isEditWatershedModalOpen, setIsEditWatershedModalOpen] = useState(false);
   const [editingWatershed, setEditingWatershed] = useState<WatershedRow | null>(null);
+  const [editBatchAssigned, setEditBatchAssigned] = useState<number>(250);
+  const [editBatchFinished, setEditBatchFinished] = useState<number>(0);
 
   const handleOpenEditWatershed = (ws: WatershedRow) => {
-    setEditingWatershed({ ...ws });
+    const defaultDate = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+    const assignmentsCopy: Record<string, ReservoirCellAssignment> = { ...ws.assignments };
+
+    // Ensure all active members have an assignment entry for this watershed
+    data.activeMemberIds.forEach(mId => {
+      if (!assignmentsCopy[mId]) {
+        const member = memberOptions.find(p => p.id === mId);
+        assignmentsCopy[mId] = {
+          memberId: mId,
+          memberName: member?.name || mId,
+          assignedCount: 0,
+          finishedCount: 0,
+          dueDate: defaultDate,
+          dueTime: '17:00',
+          status: 'not_started'
+        };
+      }
+    });
+
+    setEditingWatershed({
+      ...ws,
+      assignments: assignmentsCopy
+    });
     setIsEditWatershedModalOpen(true);
+  };
+
+  const handleEditMemberAssignmentChange = (mId: string, field: 'assignedCount' | 'finishedCount', val: number) => {
+    if (!editingWatershed) return;
+    const current = editingWatershed.assignments[mId] || {
+      memberId: mId,
+      memberName: memberOptions.find(p => p.id === mId)?.name || mId,
+      assignedCount: 0,
+      finishedCount: 0,
+      dueDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+      dueTime: '17:00',
+      status: 'not_started'
+    };
+
+    setEditingWatershed({
+      ...editingWatershed,
+      assignments: {
+        ...editingWatershed.assignments,
+        [mId]: {
+          ...current,
+          [field]: Math.max(0, val)
+        }
+      }
+    });
+  };
+
+  const handleApplyBatchAssignedToEdit = () => {
+    if (!editingWatershed) return;
+    const updatedAssignments = { ...editingWatershed.assignments };
+    data.activeMemberIds.forEach(mId => {
+      if (updatedAssignments[mId]) {
+        updatedAssignments[mId] = { ...updatedAssignments[mId], assignedCount: editBatchAssigned };
+      }
+    });
+    setEditingWatershed({ ...editingWatershed, assignments: updatedAssignments });
+  };
+
+  const handleApplyBatchFinishedToEdit = () => {
+    if (!editingWatershed) return;
+    const updatedAssignments = { ...editingWatershed.assignments };
+    data.activeMemberIds.forEach(mId => {
+      if (updatedAssignments[mId]) {
+        updatedAssignments[mId] = { ...updatedAssignments[mId], finishedCount: editBatchFinished };
+      }
+    });
+    setEditingWatershed({ ...editingWatershed, assignments: updatedAssignments });
+  };
+
+  const handleMatchAllAssignedToEdit = () => {
+    if (!editingWatershed) return;
+    const updatedAssignments = { ...editingWatershed.assignments };
+    data.activeMemberIds.forEach(mId => {
+      if (updatedAssignments[mId]) {
+        updatedAssignments[mId] = { ...updatedAssignments[mId], finishedCount: updatedAssignments[mId].assignedCount };
+      }
+    });
+    setEditingWatershed({ ...editingWatershed, assignments: updatedAssignments });
   };
 
   const handleSaveEditWatershed = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingWatershed) return;
 
+    const todayStr = new Date().toISOString().split('T')[0];
+    const updatedAssignments: Record<string, ReservoirCellAssignment> = {};
+
+    (Object.entries(editingWatershed.assignments) as [string, ReservoirCellAssignment][]).forEach(([mId, as]) => {
+      let status = as.status;
+      if (editingWatershed.isBaselineCompleted) {
+        status = 'verified';
+      } else if (as.finishedCount >= as.assignedCount && as.assignedCount > 0) {
+        status = as.verifiedByDrLiu ? 'verified' : 'completed';
+      } else if (as.dueDate && as.dueDate < todayStr && as.finishedCount < as.assignedCount) {
+        status = 'overdue';
+      } else if (as.finishedCount > 0) {
+        status = 'in_progress';
+      } else {
+        status = 'not_started';
+      }
+
+      updatedAssignments[mId] = {
+        ...as,
+        status,
+        lastUpdated: new Date().toISOString()
+      };
+    });
+
+    const finalWs: WatershedRow = {
+      ...editingWatershed,
+      assignments: updatedAssignments
+    };
+
     setData(prev => ({
       ...prev,
-      watersheds: prev.watersheds.map(ws => ws.id === editingWatershed.id ? editingWatershed : ws)
+      watersheds: prev.watersheds.map(ws => ws.id === finalWs.id ? finalWs : ws)
     }));
 
     setIsEditWatershedModalOpen(false);
     setEditingWatershed(null);
-    showToast(`Watershed "${editingWatershed.name}" updated successfully!`);
+    showToast(`Watershed "${finalWs.name}" updated with member assignments!`);
   };
 
   // State: Sweet randomized congratulations popup modal
@@ -519,6 +629,140 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     defaultDueDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
     defaultDueTime: '17:00'
   });
+
+  // Per-member custom workload configuration (Assigned count & already completed count)
+  const [newWatershedMembers, setNewWatershedMembers] = useState<Record<string, {
+    assignedCount: number;
+    finishedCount: number;
+    dueDate: string;
+    dueTime: string;
+  }>>({});
+
+  const [addBatchAssigned, setAddBatchAssigned] = useState<number>(250);
+  const [addBatchFinished, setAddBatchFinished] = useState<number>(0);
+
+  const handleOpenAddWatershed = () => {
+    const defaultDate = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+    const initialConfigs: Record<string, {
+      assignedCount: number;
+      finishedCount: number;
+      dueDate: string;
+      dueTime: string;
+    }> = {};
+
+    data.activeMemberIds.forEach(mId => {
+      // Sensible defaults tailored per person role in ERSL Lab
+      let defaultTarget = 250;
+      if (mId.includes('purushothaman')) defaultTarget = 450;
+      else if (mId.includes('tian')) defaultTarget = 380;
+      else if (mId.includes('miliutina')) defaultTarget = 320;
+      else if (mId.includes('palaparthi')) defaultTarget = 250;
+
+      initialConfigs[mId] = {
+        assignedCount: defaultTarget,
+        finishedCount: 0,
+        dueDate: defaultDate,
+        dueTime: '17:00'
+      };
+    });
+
+    setNewWatershedMembers(initialConfigs);
+    setNewWatershedForm({
+      name: '',
+      hucCode: '',
+      stateRegion: '',
+      isBaselineCompleted: false,
+      baselineTotal: 0,
+      notes: '',
+      defaultAssignedPerMember: 250,
+      defaultDueDate: defaultDate,
+      defaultDueTime: '17:00'
+    });
+    setIsAddWatershedModalOpen(true);
+  };
+
+  const handleAddMemberConfigChange = (mId: string, field: 'assignedCount' | 'finishedCount', val: number) => {
+    setNewWatershedMembers(prev => {
+      const current = prev[mId] || {
+        assignedCount: 0,
+        finishedCount: 0,
+        dueDate: newWatershedForm.defaultDueDate,
+        dueTime: newWatershedForm.defaultDueTime
+      };
+      return {
+        ...prev,
+        [mId]: {
+          ...current,
+          [field]: Math.max(0, val)
+        }
+      };
+    });
+  };
+
+  const handleApplyBatchAssignedToAdd = () => {
+    setNewWatershedMembers(prev => {
+      const next = { ...prev };
+      data.activeMemberIds.forEach(mId => {
+        if (next[mId]) {
+          next[mId] = { ...next[mId], assignedCount: addBatchAssigned };
+        }
+      });
+      return next;
+    });
+  };
+
+  const handleApplyBatchFinishedToAdd = () => {
+    setNewWatershedMembers(prev => {
+      const next = { ...prev };
+      data.activeMemberIds.forEach(mId => {
+        if (next[mId]) {
+          next[mId] = { ...next[mId], finishedCount: addBatchFinished };
+        }
+      });
+      return next;
+    });
+  };
+
+  const handleMatchAllAssignedToAdd = () => {
+    setNewWatershedMembers(prev => {
+      const next = { ...prev };
+      data.activeMemberIds.forEach(mId => {
+        if (next[mId]) {
+          next[mId] = { ...next[mId], finishedCount: next[mId].assignedCount };
+        }
+      });
+      return next;
+    });
+  };
+
+  const newWatershedSummary = useMemo(() => {
+    let totalAssigned = 0;
+    let totalFinished = 0;
+    data.activeMemberIds.forEach(mId => {
+      const cfg = newWatershedMembers[mId];
+      if (cfg) {
+        totalAssigned += Number(cfg.assignedCount) || 0;
+        totalFinished += Number(cfg.finishedCount) || 0;
+      }
+    });
+    const pct = totalAssigned > 0 ? Math.round((totalFinished / totalAssigned) * 100) : 0;
+    return { totalAssigned, totalFinished, pct };
+  }, [newWatershedMembers, data.activeMemberIds]);
+
+  const editWatershedSummary = useMemo(() => {
+    if (!editingWatershed) return { totalAssigned: 0, totalFinished: 0, pct: 0 };
+    let totalAssigned = 0;
+    let totalFinished = 0;
+    data.activeMemberIds.forEach(mId => {
+      const as = editingWatershed.assignments[mId];
+      if (as) {
+        totalAssigned += Number(as.assignedCount) || 0;
+        totalFinished += Number(as.finishedCount) || 0;
+      }
+    });
+    const pct = totalAssigned > 0 ? Math.round((totalFinished / totalAssigned) * 100) : 0;
+    return { totalAssigned, totalFinished, pct };
+  }, [editingWatershed, data.activeMemberIds]);
 
   const [isAddMemberColumnModalOpen, setIsAddMemberColumnModalOpen] = useState(false);
   const [selectedNewMemberId, setSelectedNewMemberId] = useState('');
@@ -873,20 +1117,48 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
 
     const newId = `ws-${Date.now()}`;
     const initialAssignments: Record<string, ReservoirCellAssignment> = {};
+    const todayStr = new Date().toISOString().split('T')[0];
+    let sumMemberFinished = 0;
 
     data.activeMemberIds.forEach(mId => {
       const member = memberOptions.find(p => p.id === mId);
-      initialAssignments[mId] = {
-        memberId: mId,
-        memberName: member?.name || mId,
+      const cfg = newWatershedMembers[mId] || {
         assignedCount: newWatershedForm.defaultAssignedPerMember,
         finishedCount: newWatershedForm.isBaselineCompleted ? newWatershedForm.defaultAssignedPerMember : 0,
         dueDate: newWatershedForm.defaultDueDate,
-        dueTime: newWatershedForm.defaultDueTime,
-        status: newWatershedForm.isBaselineCompleted ? 'verified' : 'not_started',
+        dueTime: newWatershedForm.defaultDueTime
+      };
+
+      const assigned = Number(cfg.assignedCount) || 0;
+      const finished = Number(cfg.finishedCount) || 0;
+      sumMemberFinished += finished;
+
+      let status: ReservoirCellAssignment['status'] = 'not_started';
+      if (newWatershedForm.isBaselineCompleted) {
+        status = 'verified';
+      } else if (assigned > 0 && finished >= assigned) {
+        status = 'completed';
+      } else if (cfg.dueDate && cfg.dueDate < todayStr && finished < assigned) {
+        status = 'overdue';
+      } else if (finished > 0) {
+        status = 'in_progress';
+      }
+
+      initialAssignments[mId] = {
+        memberId: mId,
+        memberName: member?.name || mId,
+        assignedCount: assigned,
+        finishedCount: finished,
+        dueDate: cfg.dueDate || newWatershedForm.defaultDueDate,
+        dueTime: cfg.dueTime || newWatershedForm.defaultDueTime,
+        status,
         verifiedByDrLiu: newWatershedForm.isBaselineCompleted
       };
     });
+
+    const baselineTotal = newWatershedForm.isBaselineCompleted
+      ? (Number(newWatershedForm.baselineTotal) || sumMemberFinished)
+      : undefined;
 
     const newWs: WatershedRow = {
       id: newId,
@@ -894,7 +1166,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       hucCode: newWatershedForm.hucCode.trim() || undefined,
       stateRegion: newWatershedForm.stateRegion.trim() || 'Southeast US',
       isBaselineCompleted: newWatershedForm.isBaselineCompleted,
-      baselineTotalReservoirs: newWatershedForm.isBaselineCompleted ? Number(newWatershedForm.baselineTotal) : undefined,
+      baselineTotalReservoirs: baselineTotal,
       notes: newWatershedForm.notes.trim() || undefined,
       assignments: initialAssignments
     };
@@ -907,17 +1179,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     }));
 
     setIsAddWatershedModalOpen(false);
-    setNewWatershedForm({
-      name: '',
-      hucCode: '',
-      stateRegion: '',
-      isBaselineCompleted: false,
-      baselineTotal: 0,
-      notes: '',
-      defaultAssignedPerMember: 250,
-      defaultDueDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
-      defaultDueTime: '17:00'
-    });
+    showToast(`Added new watershed "${newWs.name}" with per-member targets!`);
   };
 
   // Delete Watershed
@@ -1117,7 +1379,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
             {isAdmin && (
               <>
                 <button
-                  onClick={() => setIsAddWatershedModalOpen(true)}
+                  onClick={handleOpenAddWatershed}
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#9E1B32] hover:bg-red-800 text-white text-xs font-bold transition-all shadow-md cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
@@ -1846,7 +2108,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                   >
                     <button
                       type="button"
-                      onClick={() => setIsAddWatershedModalOpen(true)}
+                      onClick={handleOpenAddWatershed}
                       className="inline-flex items-center gap-1.5 text-xs font-bold text-[#9E1B32] hover:text-red-800 hover:underline cursor-pointer"
                     >
                       <Plus className="w-4 h-4" />
@@ -2208,9 +2470,9 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
           ========================================================================= */}
       {isAddWatershedModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
             
-            <div className="bg-slate-900 p-5 text-white flex items-center justify-between">
+            <div className="bg-slate-900 p-5 text-white flex items-center justify-between shrink-0">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-wider text-[#9E1B32]">
                   Watershed Project Configuration
@@ -2220,6 +2482,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                 </h3>
               </div>
               <button 
+                type="button"
                 onClick={() => setIsAddWatershedModalOpen(false)}
                 className="text-white/80 hover:text-white p-1 rounded-full transition-colors cursor-pointer"
               >
@@ -2227,7 +2490,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               </button>
             </div>
 
-            <form onSubmit={handleAddWatershed} className="p-6 space-y-4 text-xs">
+            <form onSubmit={handleAddWatershed} className="flex-1 overflow-y-auto p-6 space-y-4 text-xs pr-4">
               
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -2271,14 +2534,30 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                 </div>
               </div>
 
-              {/* Baseline checkbox (Requested by user: "in the first row we have already completed some previous water sheds") */}
-              <div className="bg-amber-50 p-3 rounded-xl border border-amber-200 space-y-2">
+              {/* Baseline checkbox */}
+              <div className="bg-amber-50 p-3.5 rounded-xl border border-amber-200 space-y-2">
                 <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
                     id="isBaselineCompleted"
                     checked={newWatershedForm.isBaselineCompleted}
-                    onChange={(e) => setNewWatershedForm({ ...newWatershedForm, isBaselineCompleted: e.target.checked })}
+                    onChange={(e) => {
+                      const isChecked = e.target.checked;
+                      setNewWatershedForm({ ...newWatershedForm, isBaselineCompleted: isChecked });
+                      if (isChecked) {
+                        // Automatically set already completed = assigned for all members on baseline
+                        setNewWatershedMembers(prev => {
+                          const next = { ...prev };
+                          Object.keys(next).forEach(mId => {
+                            next[mId] = {
+                              ...next[mId],
+                              finishedCount: next[mId].assignedCount
+                            };
+                          });
+                          return next;
+                        });
+                      }
+                    }}
                     className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer"
                   />
                   <label htmlFor="isBaselineCompleted" className="text-xs font-bold text-amber-900 cursor-pointer">
@@ -2286,55 +2565,221 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                   </label>
                 </div>
                 <p className="text-[10px] text-amber-700">
-                  Will appear at the top as an archived milestone with 100% completion already accomplished.
+                  Will appear at the top as an archived milestone with 100% completion already accomplished. You can customize member completed numbers below.
                 </p>
 
                 {newWatershedForm.isBaselineCompleted && (
                   <div className="pt-2">
                     <label className="block text-[11px] font-bold text-amber-900 mb-1">
-                      Total Completed Reservoirs in this baseline:
+                      Total Completed Reservoirs in this baseline (leave 0 to auto-sum member counts):
                     </label>
                     <input
                       type="number"
-                      min="1"
+                      min="0"
                       value={newWatershedForm.baselineTotal}
                       onChange={(e) => setNewWatershedForm({ ...newWatershedForm, baselineTotal: parseInt(e.target.value) || 0 })}
-                      placeholder="e.g. 4850"
+                      placeholder={`Auto-sum from members: ${newWatershedSummary.totalFinished}`}
                       className="w-full px-3 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-bold text-slate-800"
                     />
                   </div>
                 )}
               </div>
 
-              {!newWatershedForm.isBaselineCompleted && (
-                <>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Default Reservoirs Per Member:
-                      </label>
+              {/* Dedicated Card: Per-Member Target & Completed Reservoir Allocations */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-2.5">
+                  <div>
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
+                      <Users className="w-4 h-4 text-[#9E1B32]" />
+                      <span>Team Member Assignments & Baseline Reservoirs</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500">
+                      Set custom assigned targets and already completed counts per researcher (loads differ per position).
+                    </p>
+                  </div>
+
+                  {/* Batch Action Helpers */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1">
                       <input
                         type="number"
-                        min="10"
-                        value={newWatershedForm.defaultAssignedPerMember}
-                        onChange={(e) => setNewWatershedForm({ ...newWatershedForm, defaultAssignedPerMember: parseInt(e.target.value) || 0 })}
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-800"
+                        min="0"
+                        title="Target value for all"
+                        value={addBatchAssigned}
+                        onChange={(e) => setAddBatchAssigned(parseInt(e.target.value) || 0)}
+                        className="w-16 px-1.5 py-1 bg-white border border-slate-300 rounded text-[11px] font-bold text-slate-800 text-center"
                       />
+                      <button
+                        type="button"
+                        onClick={handleApplyBatchAssignedToAdd}
+                        className="px-2 py-1 bg-slate-700 hover:bg-slate-800 text-white text-[10px] font-bold rounded transition-colors cursor-pointer"
+                        title="Apply this target to all team members"
+                      >
+                        Set All Targets
+                      </button>
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Default Target Due Date:
-                      </label>
+                    <div className="flex items-center gap-1">
                       <input
-                        type="date"
-                        value={newWatershedForm.defaultDueDate}
-                        onChange={(e) => setNewWatershedForm({ ...newWatershedForm, defaultDueDate: e.target.value })}
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800"
+                        type="number"
+                        min="0"
+                        title="Completed value for all"
+                        value={addBatchFinished}
+                        onChange={(e) => setAddBatchFinished(parseInt(e.target.value) || 0)}
+                        className="w-16 px-1.5 py-1 bg-white border border-slate-300 rounded text-[11px] font-bold text-emerald-800 text-center"
                       />
+                      <button
+                        type="button"
+                        onClick={handleApplyBatchFinishedToAdd}
+                        className="px-2 py-1 bg-emerald-700 hover:bg-emerald-800 text-white text-[10px] font-bold rounded transition-colors cursor-pointer"
+                        title="Apply this completed count to all team members"
+                      >
+                        Set All Completed
+                      </button>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={handleMatchAllAssignedToAdd}
+                      className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold rounded transition-colors cursor-pointer flex items-center gap-1"
+                      title="Set already completed = assigned target for all members"
+                    >
+                      <CheckCircle2 className="w-3 h-3" />
+                      100% All Done
+                    </button>
                   </div>
-                </>
+                </div>
+
+                {/* Per-Member Inputs List */}
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {data.activeMemberIds.map((mId) => {
+                    const member = memberOptions.find(p => p.id === mId);
+                    const cfg = newWatershedMembers[mId] || {
+                      assignedCount: 0,
+                      finishedCount: 0,
+                      dueDate: newWatershedForm.defaultDueDate,
+                      dueTime: newWatershedForm.defaultDueTime
+                    };
+                    const assigned = Number(cfg.assignedCount) || 0;
+                    const finished = Number(cfg.finishedCount) || 0;
+                    const pct = assigned > 0 ? Math.round((finished / assigned) * 100) : 0;
+                    const isDone = assigned > 0 && finished >= assigned;
+
+                    return (
+                      <div 
+                        key={mId} 
+                        className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-slate-200 hover:border-slate-300 transition-all shadow-xs gap-3"
+                      >
+                        {/* Member identity */}
+                        <div className="flex items-center gap-2.5 min-w-[160px] flex-1">
+                          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#9E1B32] to-slate-900 text-white font-black text-[10px] flex items-center justify-center shrink-0 shadow-xs">
+                            {(member?.name || mId).split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-xs text-slate-800 truncate">
+                              {member?.name || mId}
+                            </p>
+                            <p className="text-[10px] text-slate-500 truncate">
+                              {member?.role || 'Research Team Member'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Numeric inputs */}
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div>
+                            <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+                              Assigned Target
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={cfg.assignedCount}
+                              onChange={(e) => handleAddMemberConfigChange(mId, 'assignedCount', parseInt(e.target.value) || 0)}
+                              className="w-24 px-2 py-1 bg-slate-50 border border-slate-300 rounded text-xs font-bold text-slate-800 text-center focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#9E1B32]"
+                            />
+                          </div>
+
+                          <div>
+                            <span className="block text-[9px] font-bold text-emerald-600 uppercase tracking-wider mb-0.5">
+                              Already Completed
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={cfg.finishedCount}
+                              onChange={(e) => handleAddMemberConfigChange(mId, 'finishedCount', parseInt(e.target.value) || 0)}
+                              className="w-24 px-2 py-1 bg-slate-50 border border-slate-300 rounded text-xs font-bold text-emerald-700 text-center focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            />
+                          </div>
+
+                          {/* Mini status pill */}
+                          <div className="w-24 text-right pt-3">
+                            {isDone ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-black">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                100% Done
+                              </span>
+                            ) : finished > 0 ? (
+                              <span className="inline-block px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
+                                {pct}% ({finished}/{assigned})
+                              </span>
+                            ) : (
+                              <span className="inline-block px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[10px] font-semibold">
+                                0 / {assigned}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Card summary footer */}
+                <div className="flex items-center justify-between p-2.5 bg-slate-200/70 rounded-lg text-xs font-bold text-slate-700">
+                  <span>Sum Across All {data.activeMemberIds.length} Members:</span>
+                  <div className="flex items-center gap-4">
+                    <span className="text-slate-800">
+                      Assigned: <span className="font-black text-[#9E1B32]">{newWatershedSummary.totalAssigned.toLocaleString()}</span>
+                    </span>
+                    <span className="text-slate-800">
+                      Already Completed: <span className="font-black text-emerald-700">{newWatershedSummary.totalFinished.toLocaleString()}</span>
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-white text-[11px] font-black text-slate-800 border border-slate-300">
+                      {newWatershedSummary.pct}% Complete
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Default milestone deadline for new tasks */}
+              {!newWatershedForm.isBaselineCompleted && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Target Due Date:
+                    </label>
+                    <input
+                      type="date"
+                      value={newWatershedForm.defaultDueDate}
+                      onChange={(e) => setNewWatershedForm({ ...newWatershedForm, defaultDueDate: e.target.value })}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Due Time:
+                    </label>
+                    <input
+                      type="time"
+                      value={newWatershedForm.defaultDueTime}
+                      onChange={(e) => setNewWatershedForm({ ...newWatershedForm, defaultDueTime: e.target.value })}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800"
+                    />
+                  </div>
+                </div>
               )}
 
               <div>
@@ -2350,7 +2795,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsAddWatershedModalOpen(false)}
@@ -2448,9 +2893,9 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
           ========================================================================= */}
       {isEditWatershedModalOpen && editingWatershed && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
             
-            <div className="bg-slate-900 p-5 text-white flex items-center justify-between">
+            <div className="bg-slate-900 p-5 text-white flex items-center justify-between shrink-0">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-wider text-[#9E1B32]">
                   Watershed Configuration
@@ -2471,7 +2916,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               </button>
             </div>
 
-            <form onSubmit={handleSaveEditWatershed} className="p-6 space-y-4 text-xs">
+            <form onSubmit={handleSaveEditWatershed} className="flex-1 overflow-y-auto p-6 space-y-4 text-xs pr-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Watershed / Basin Name: *
@@ -2512,7 +2957,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               </div>
 
               {/* Baseline historical completed toggle */}
-              <div className="bg-amber-50 p-3 rounded-xl border border-amber-200 space-y-2">
+              <div className="bg-amber-50 p-3.5 rounded-xl border border-amber-200 space-y-2">
                 <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
@@ -2542,6 +2987,177 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                 )}
               </div>
 
+              {/* Per-Member Allocations Card */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-2.5">
+                  <div>
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
+                      <Users className="w-4 h-4 text-[#9E1B32]" />
+                      <span>Member Assignments for {editingWatershed.name}</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500">
+                      Update targets or already completed counts for each individual researcher in this basin.
+                    </p>
+                  </div>
+
+                  {/* Batch Action Helpers */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min="0"
+                        title="Target value for all"
+                        value={editBatchAssigned}
+                        onChange={(e) => setEditBatchAssigned(parseInt(e.target.value) || 0)}
+                        className="w-16 px-1.5 py-1 bg-white border border-slate-300 rounded text-[11px] font-bold text-slate-800 text-center"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleApplyBatchAssignedToEdit}
+                        className="px-2 py-1 bg-slate-700 hover:bg-slate-800 text-white text-[10px] font-bold rounded transition-colors cursor-pointer"
+                        title="Apply this target to all team members"
+                      >
+                        Set All Targets
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min="0"
+                        title="Completed value for all"
+                        value={editBatchFinished}
+                        onChange={(e) => setEditBatchFinished(parseInt(e.target.value) || 0)}
+                        className="w-16 px-1.5 py-1 bg-white border border-slate-300 rounded text-[11px] font-bold text-emerald-800 text-center"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleApplyBatchFinishedToEdit}
+                        className="px-2 py-1 bg-emerald-700 hover:bg-emerald-800 text-white text-[10px] font-bold rounded transition-colors cursor-pointer"
+                        title="Apply this completed count to all team members"
+                      >
+                        Set All Completed
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleMatchAllAssignedToEdit}
+                      className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold rounded transition-colors cursor-pointer flex items-center gap-1"
+                      title="Set already completed = assigned target for all members"
+                    >
+                      <CheckCircle2 className="w-3 h-3" />
+                      100% All Done
+                    </button>
+                  </div>
+                </div>
+
+                {/* Per-Member Inputs List */}
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {data.activeMemberIds.map((mId) => {
+                    const member = memberOptions.find(p => p.id === mId);
+                    const as = editingWatershed.assignments[mId] || {
+                      memberId: mId,
+                      memberName: member?.name || mId,
+                      assignedCount: 0,
+                      finishedCount: 0,
+                      dueDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+                      dueTime: '17:00',
+                      status: 'not_started' as const
+                    };
+                    const assigned = Number(as.assignedCount) || 0;
+                    const finished = Number(as.finishedCount) || 0;
+                    const pct = assigned > 0 ? Math.round((finished / assigned) * 100) : 0;
+                    const isDone = assigned > 0 && finished >= assigned;
+
+                    return (
+                      <div 
+                        key={mId} 
+                        className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-slate-200 hover:border-slate-300 transition-all shadow-xs gap-3"
+                      >
+                        {/* Member identity */}
+                        <div className="flex items-center gap-2.5 min-w-[160px] flex-1">
+                          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#9E1B32] to-slate-900 text-white font-black text-[10px] flex items-center justify-center shrink-0 shadow-xs">
+                            {(member?.name || mId).split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-xs text-slate-800 truncate">
+                              {member?.name || mId}
+                            </p>
+                            <p className="text-[10px] text-slate-500 truncate">
+                              {member?.role || 'Research Team Member'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Numeric inputs */}
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div>
+                            <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+                              Assigned Target
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={as.assignedCount}
+                              onChange={(e) => handleEditMemberAssignmentChange(mId, 'assignedCount', parseInt(e.target.value) || 0)}
+                              className="w-24 px-2 py-1 bg-slate-50 border border-slate-300 rounded text-xs font-bold text-slate-800 text-center focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#9E1B32]"
+                            />
+                          </div>
+
+                          <div>
+                            <span className="block text-[9px] font-bold text-emerald-600 uppercase tracking-wider mb-0.5">
+                              Already Completed
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={as.finishedCount}
+                              onChange={(e) => handleEditMemberAssignmentChange(mId, 'finishedCount', parseInt(e.target.value) || 0)}
+                              className="w-24 px-2 py-1 bg-slate-50 border border-slate-300 rounded text-xs font-bold text-emerald-700 text-center focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            />
+                          </div>
+
+                          {/* Mini status pill */}
+                          <div className="w-24 text-right pt-3">
+                            {isDone ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-black">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                100% Done
+                              </span>
+                            ) : finished > 0 ? (
+                              <span className="inline-block px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
+                                {pct}% ({finished}/{assigned})
+                              </span>
+                            ) : (
+                              <span className="inline-block px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[10px] font-semibold">
+                                0 / {assigned}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Card summary footer */}
+                <div className="flex items-center justify-between p-2.5 bg-slate-200/70 rounded-lg text-xs font-bold text-slate-700">
+                  <span>Sum Across All {data.activeMemberIds.length} Members:</span>
+                  <div className="flex items-center gap-4">
+                    <span className="text-slate-800">
+                      Assigned: <span className="font-black text-[#9E1B32]">{editWatershedSummary.totalAssigned.toLocaleString()}</span>
+                    </span>
+                    <span className="text-slate-800">
+                      Already Completed: <span className="font-black text-emerald-700">{editWatershedSummary.totalFinished.toLocaleString()}</span>
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-white text-[11px] font-black text-slate-800 border border-slate-300">
+                      {editWatershedSummary.pct}% Complete
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Scope & Methodology Notes:
@@ -2554,7 +3170,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
