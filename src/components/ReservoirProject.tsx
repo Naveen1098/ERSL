@@ -361,9 +361,6 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
 
   // Team Progress Display Tab: 'combined' (Both Round & Overall) vs 'round' vs 'overall'
   const [progressTab, setProgressTab] = useState<'combined' | 'round' | 'overall'>('combined');
-  
-  // Active / Selected Round for current week/round progress view (defaults to Round 3, the active sprint)
-  const [activeSprintRound, setActiveSprintRound] = useState<number>(3);
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -414,6 +411,26 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       console.error('Failed to persist reservoir round data', e);
     }
   }, [rounds]);
+
+  // SMART AUTO-ADVANCING ACTIVE SPRINT:
+  // Automatically detects the current sprint round as the earliest round
+  // that is not yet 100% completed & verified by Dr. Dan Tian.
+  // As soon as all members in Round 3 finish and Dan verifies them,
+  // it AUTOMATICALLY advances to Round 4, then Round 5, etc.
+  const autoDetectedActiveRound = useMemo(() => {
+    const currentUnfinished = rounds.find(r => {
+      if (r.allocations.length === 0) return true;
+      return r.allocations.some(a => !a.danVerified);
+    });
+    return currentUnfinished ? Number(currentUnfinished.round) : Number(rounds[rounds.length - 1]?.round || 1);
+  }, [rounds]);
+
+  // Optional manual round override (null = auto-advancement is active)
+  const [manualRoundOverride, setManualRoundOverride] = useState<number | null>(null);
+
+  // Active round is either manual selection or automatically detected active sprint
+  const activeSprintRound = manualRoundOverride ?? autoDetectedActiveRound;
+  const isAutoTracking = manualRoundOverride === null;
 
   // Distinct members list
   const teamMembers = useMemo(() => {
@@ -1055,8 +1072,9 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
             <div className="mt-2 text-[11px] text-slate-300">
               Delivery: <strong>{currentRoundMetrics.roundObj?.deliverDateText}</strong> · Collect: <strong>{currentRoundMetrics.roundObj?.collectDateText}</strong>
             </div>
-            <span className="text-[11px] text-amber-400 font-semibold mt-1 inline-block">
-              Members Active in GIS Digitization
+            <span className="text-[11px] text-amber-400 font-semibold mt-1 inline-flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-amber-300" />
+              {isAutoTracking ? 'Auto-Advances as rounds get verified' : 'Manual View Selected'}
             </span>
           </div>
 
@@ -1127,21 +1145,57 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
 
           {/* Tab Switcher & Round Selector */}
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* Round / Week Selector */}
+            {/* Round / Week Selector with Auto-Advance Support */}
             <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">
               <Calendar className="w-3.5 h-3.5 text-slate-500" />
               <span className="text-xs font-bold text-slate-600">Sprint Round:</span>
               <select
-                value={activeSprintRound}
-                onChange={(e) => setActiveSprintRound(parseInt(e.target.value) || 3)}
+                value={manualRoundOverride !== null ? String(manualRoundOverride) : 'auto'}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === 'auto') {
+                    setManualRoundOverride(null);
+                    showToast(`Auto-Tracking Active: Round ${autoDetectedActiveRound} is the current sprint.`);
+                  } else {
+                    const num = parseInt(val) || 1;
+                    setManualRoundOverride(num);
+                  }
+                }}
                 className="text-xs font-extrabold text-[#9E1B32] bg-transparent focus:outline-none cursor-pointer"
               >
-                {rounds.map(r => (
-                  <option key={r.id} value={r.round}>
-                    Round {r.round} {Number(r.round) === 3 ? '(Active Sprint)' : ''}
-                  </option>
-                ))}
+                <option value="auto">
+                  ⚡ Auto: Round {autoDetectedActiveRound} (Active Sprint)
+                </option>
+                {rounds.map(r => {
+                  const isRoundVerified = r.allocations.length > 0 && r.allocations.every(a => a.danVerified);
+                  const isRoundDone = r.allocations.length > 0 && r.allocations.every(a => a.completed);
+                  let statusTag = '';
+                  if (isRoundVerified) statusTag = '✓ Verified Done';
+                  else if (isRoundDone) statusTag = '🕒 Awaiting Dan QC';
+                  else if (Number(r.round) === autoDetectedActiveRound) statusTag = '⚡ Active Sprint';
+                  else statusTag = 'Scheduled';
+
+                  return (
+                    <option key={r.id} value={r.round}>
+                      Round {r.round} ({statusTag})
+                    </option>
+                  );
+                })}
               </select>
+
+              {manualRoundOverride !== null && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setManualRoundOverride(null);
+                    showToast(`Returned to Auto-Tracking: Round ${autoDetectedActiveRound} is active.`);
+                  }}
+                  className="ml-1 text-[10px] text-cyan-800 bg-cyan-100 hover:bg-cyan-200 px-1.5 py-0.5 rounded font-extrabold cursor-pointer transition-colors"
+                  title="Reset to Auto-detected active sprint"
+                >
+                  Reset Auto
+                </button>
+              )}
             </div>
 
             {/* View Tabs */}
