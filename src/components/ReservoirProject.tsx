@@ -37,10 +37,17 @@ import {
   Database,
   ArrowRight,
   UserCheck,
+  UserPlus,
   Sliders,
   CheckCheck,
-  Hourglass
+  Hourglass,
+  RotateCcw
 } from 'lucide-react';
+
+export type DeliveryStatus = 'not_started' | 'delivered';
+export type CollectStatus = 'not_started' | 'collected';
+export type CheckStatus = 'not_started' | 'in_progress' | 'qc_checked' | 'reprocessing' | 'verified';
+export type BackupStatus = 'not_started' | 'backed_up';
 
 export interface MemberAllocation {
   memberId: string;
@@ -53,6 +60,20 @@ export interface MemberAllocation {
   verifiedAt?: string;
   verifiedBy?: string;
   notes?: string;
+
+  // Member-wise dates and statuses for the 4 date columns:
+  deliverDate?: string;
+  deliverStatus?: DeliveryStatus; // 'not_started' (empty circle) | 'delivered' (green circle)
+
+  collectDate?: string;
+  collectStatus?: CollectStatus; // 'not_started' (empty circle) | 'collected' (green circle)
+
+  checkDate?: string;
+  checkStatus?: CheckStatus; // 'not_started' (empty) | 'in_progress' (orange) | 'qc_checked' (purple) | 'reprocessing' (blue) | 'verified' (solid green)
+  checkNotes?: string;
+
+  backupDate?: string;
+  backupStatus?: BackupStatus; // 'not_started' (empty circle) | 'backed_up' (green circle)
 }
 
 export interface CheckItem {
@@ -83,7 +104,69 @@ export interface RoundRow {
   notes?: string;
 }
 
-const STORAGE_KEY = 'ersl_reservoir_project_v2';
+export const CHECK_STATUS_CONFIG: {
+  key: CheckStatus;
+  label: string;
+  shortLabel: string;
+  badgeBg: string;
+  badgeText: string;
+  badgeBorder: string;
+  circleClass: string;
+  desc: string;
+}[] = [
+  {
+    key: 'not_started',
+    label: 'Not Yet Started',
+    shortLabel: 'Not Started',
+    badgeBg: 'bg-slate-100',
+    badgeText: 'text-slate-600',
+    badgeBorder: 'border-slate-300',
+    circleClass: 'border-2 border-slate-400 bg-white hover:border-slate-600',
+    desc: 'Empty circle: Work not yet started'
+  },
+  {
+    key: 'in_progress',
+    label: 'In Progress',
+    shortLabel: 'In Progress',
+    badgeBg: 'bg-amber-100',
+    badgeText: 'text-amber-800',
+    badgeBorder: 'border-amber-300',
+    circleClass: 'bg-amber-500 border border-amber-600 shadow-2xs',
+    desc: 'Orange filled circle: Polygon delineation in progress'
+  },
+  {
+    key: 'qc_checked',
+    label: 'QC Checked by Dan',
+    shortLabel: 'QC Checked',
+    badgeBg: 'bg-purple-100',
+    badgeText: 'text-purple-800',
+    badgeBorder: 'border-purple-300',
+    circleClass: 'bg-purple-700 border border-purple-800 text-white font-black text-[8px] flex items-center justify-center shadow-2xs',
+    desc: 'Purple circle: Quality check reviewed by Dr. Dan Tian'
+  },
+  {
+    key: 'reprocessing',
+    label: 'Reprocessing',
+    shortLabel: 'Reprocessing',
+    badgeBg: 'bg-sky-100',
+    badgeText: 'text-sky-800',
+    badgeBorder: 'border-sky-300',
+    circleClass: 'bg-sky-500 border border-sky-600 shadow-2xs',
+    desc: 'Blue filled circle: Reprocessing / boundary correction requested'
+  },
+  {
+    key: 'verified',
+    label: 'Dan QC Verified',
+    shortLabel: 'QC Verified',
+    badgeBg: 'bg-emerald-100',
+    badgeText: 'text-emerald-800',
+    badgeBorder: 'border-emerald-300',
+    circleClass: 'bg-emerald-600 border border-emerald-700 text-white font-black text-[8px] flex items-center justify-center shadow-2xs',
+    desc: 'Solid green circle: 100% Quality Verified by Dr. Dan Tian'
+  }
+];
+
+const STORAGE_KEY = 'ersl_reservoir_project_v3';
 
 // Baseline data extracted directly from Reservoir_tabel_details.docx
 export const getInitialRoundData = (): RoundRow[] => [
@@ -96,20 +179,20 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Finish: 168',
     cumulativeFinished: 168,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '40', numericCount: 40, finishedCount: 40, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian' },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '18', numericCount: 18, finishedCount: 18, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian' },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '9', numericCount: 9, finishedCount: 9, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian' },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '9', numericCount: 9, finishedCount: 9, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian' },
-      { memberId: 'person-tian', memberName: 'Dan', countText: '16', numericCount: 16, finishedCount: 16, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian' }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '40', numericCount: 40, finishedCount: 40, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian', deliverDate: '10/7', deliverStatus: 'delivered', collectDate: '10/12', collectStatus: 'collected', checkDate: '10/14', checkStatus: 'verified', backupDate: '10/15', backupStatus: 'backed_up' },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '18', numericCount: 18, finishedCount: 18, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian', deliverDate: '10/7', deliverStatus: 'delivered', collectDate: '10/12', collectStatus: 'collected', checkDate: '10/14', checkStatus: 'verified', backupDate: '10/15', backupStatus: 'backed_up' },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '9', numericCount: 9, finishedCount: 9, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian', deliverDate: '10/7', deliverStatus: 'delivered', collectDate: '10/12', collectStatus: 'collected', checkDate: '10/14', checkStatus: 'verified', backupDate: '10/15', backupStatus: 'backed_up' },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '9', numericCount: 9, finishedCount: 9, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian', deliverDate: '10/7', deliverStatus: 'delivered', collectDate: '10/12', collectStatus: 'collected', checkDate: '10/14', checkStatus: 'verified', backupDate: '10/15', backupStatus: 'backed_up' },
+      { memberId: 'person-tian', memberName: 'Dan', countText: '16', numericCount: 16, finishedCount: 16, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian', deliverDate: '10/7', deliverStatus: 'delivered', collectDate: '10/12', collectStatus: 'collected', checkDate: '10/14', checkStatus: 'verified', backupDate: '10/15', backupStatus: 'backed_up' }
     ],
-    deliverDateText: '✓ -',
+    deliverDateText: '10/7',
     deliverCompleted: true,
-    collectDateText: '✓ -',
+    collectDateText: '10/12',
     collectCompleted: true,
-    checkDateText: '✓ -',
+    checkDateText: '10/14',
     checkCompleted: true,
     checkItems: [],
-    backupDateText: '✓ -',
+    backupDateText: '10/15',
     backupCompleted: true,
     notes: 'Colorado River Basin (CRB) baseline run. 100% completed, QA checked by Dr. Dan Tian and backed up.'
   },
@@ -122,15 +205,15 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Finish: 168+210= 378',
     cumulativeFinished: 378,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '117', numericCount: 117, finishedCount: 117, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian' },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '47', numericCount: 47, finishedCount: 47, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian' },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '24', numericCount: 24, finishedCount: 24, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian' },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '23', numericCount: 23, finishedCount: 23, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian' },
-      { memberId: 'person-tian', memberName: 'Dan', countText: '35', numericCount: 35, finishedCount: 35, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian' }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '117', numericCount: 117, finishedCount: 117, completed: true, danVerified: false, deliverDate: '10/10', deliverStatus: 'delivered', collectDate: '10/15', collectStatus: 'collected', checkDate: '10/19', checkStatus: 'in_progress', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '47', numericCount: 47, finishedCount: 47, completed: true, danVerified: false, deliverDate: '10/10', deliverStatus: 'delivered', collectDate: '10/15', collectStatus: 'collected', checkDate: '10/19', checkStatus: 'in_progress', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '24', numericCount: 24, finishedCount: 24, completed: true, danVerified: false, deliverDate: '10/10', deliverStatus: 'delivered', collectDate: '10/15', collectStatus: 'collected', checkDate: '10/16', checkStatus: 'reprocessing', checkNotes: '3094, SAR', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '23', numericCount: 23, finishedCount: 23, completed: true, danVerified: false, deliverDate: '10/10', deliverStatus: 'delivered', collectDate: '10/15', collectStatus: 'collected', checkDate: '10/16', checkStatus: 'in_progress', checkNotes: '22/23 (find missing)', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-tian', memberName: 'Dan', countText: '35', numericCount: 35, finishedCount: 35, completed: true, danVerified: true, deliverDate: '10/10', deliverStatus: 'delivered', collectDate: '10/15', collectStatus: 'collected', checkDate: '10/19', checkStatus: 'qc_checked', backupDate: 'Pending', backupStatus: 'not_started' }
     ],
-    deliverDateText: '✓ -',
+    deliverDateText: '10/10',
     deliverCompleted: true,
-    collectDateText: '✓',
+    collectDateText: '10/15',
     collectCompleted: true,
     checkDateText: '10/16 & 10/19',
     checkCompleted: false,
@@ -153,10 +236,10 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Finish: 378+35+132= 545',
     cumulativeFinished: 545,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '94', numericCount: 94, finishedCount: 0, completed: false, danVerified: false },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '35 (small)', numericCount: 35, finishedCount: 0, completed: false, danVerified: false },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '19', numericCount: 19, finishedCount: 0, completed: false, danVerified: false },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '19', numericCount: 19, finishedCount: 0, completed: false, danVerified: false }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '94', numericCount: 94, finishedCount: 0, completed: false, danVerified: false, deliverDate: '10/7 Wed', deliverStatus: 'delivered', collectDate: '10/19 Mon', collectStatus: 'not_started', checkDate: '10/19', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '35 (small)', numericCount: 35, finishedCount: 0, completed: false, danVerified: false, deliverDate: '10/7 Wed', deliverStatus: 'delivered', collectDate: '10/19 Mon', collectStatus: 'not_started', checkDate: '10/19', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '19', numericCount: 19, finishedCount: 0, completed: false, danVerified: false, deliverDate: '10/7 Wed', deliverStatus: 'delivered', collectDate: '10/19 Mon', collectStatus: 'not_started', checkDate: '10/19', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '19', numericCount: 19, finishedCount: 0, completed: false, danVerified: false, deliverDate: '10/7 Wed', deliverStatus: 'delivered', collectDate: '10/19 Mon', collectStatus: 'not_started', checkDate: '10/19', checkStatus: 'in_progress', checkNotes: 'Ani: 1302', backupDate: 'Pending', backupStatus: 'not_started' }
     ],
     deliverDateText: '10/7 Wed',
     deliverCompleted: true,
@@ -180,11 +263,11 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Target: 545+216= 761',
     cumulativeFinished: 761,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '65+31=96', numericCount: 96, finishedCount: 0, completed: false, danVerified: false },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false },
-      { memberId: 'person-tian', memberName: 'Dan', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '65+31=96', numericCount: 96, finishedCount: 0, completed: false, danVerified: false, deliverDate: '10/16 Fri', deliverStatus: 'not_started', collectDate: '10/26 Mon', collectStatus: 'not_started', checkDate: 'Scheduled', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false, deliverDate: '10/16 Fri', deliverStatus: 'not_started', collectDate: '10/26 Mon', collectStatus: 'not_started', checkDate: 'Scheduled', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false, deliverDate: '10/16 Fri', deliverStatus: 'not_started', collectDate: '10/26 Mon', collectStatus: 'not_started', checkDate: 'Scheduled', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false, deliverDate: '10/16 Fri', deliverStatus: 'not_started', collectDate: '10/26 Mon', collectStatus: 'not_started', checkDate: 'Scheduled', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-tian', memberName: 'Dan', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false, deliverDate: '10/16 Fri', deliverStatus: 'not_started', collectDate: '10/26 Mon', collectStatus: 'not_started', checkDate: 'Scheduled', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' }
     ],
     deliverDateText: '10/16 Fri',
     deliverCompleted: false,
@@ -206,11 +289,11 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Target: 761+217= 978',
     cumulativeFinished: 978,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '43+54=97', numericCount: 97, finishedCount: 0, completed: false, danVerified: false },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false },
-      { memberId: 'person-tian', memberName: 'Dan', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '43+54=97', numericCount: 97, finishedCount: 0, completed: false, danVerified: false, deliverDate: '10/23 Fri', deliverStatus: 'not_started', collectDate: '11/2 Mon', collectStatus: 'not_started', checkDate: 'Scheduled', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false, deliverDate: '10/23 Fri', deliverStatus: 'not_started', collectDate: '11/2 Mon', collectStatus: 'not_started', checkDate: 'Scheduled', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false, deliverDate: '10/23 Fri', deliverStatus: 'not_started', collectDate: '11/2 Mon', collectStatus: 'not_started', checkDate: 'Scheduled', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false, deliverDate: '10/23 Fri', deliverStatus: 'not_started', collectDate: '11/2 Mon', collectStatus: 'not_started', checkDate: 'Scheduled', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-tian', memberName: 'Dan', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false, deliverDate: '10/23 Fri', deliverStatus: 'not_started', collectDate: '11/2 Mon', collectStatus: 'not_started', checkDate: 'Scheduled', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' }
     ],
     deliverDateText: '10/23 Fri',
     deliverCompleted: false,
@@ -232,11 +315,11 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Target: 978+206= 1,184',
     cumulativeFinished: 1184,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '100', numericCount: 100, finishedCount: 0, completed: false, danVerified: false },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false },
-      { memberId: 'person-tian', memberName: 'Dan', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '100', numericCount: 100, finishedCount: 0, completed: false, danVerified: false, deliverDate: '10/30 Fri', deliverStatus: 'not_started', collectDate: '11/9 Mon', collectStatus: 'not_started', checkDate: 'Scheduled', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false, deliverDate: '10/30 Fri', deliverStatus: 'not_started', collectDate: '11/9 Mon', collectStatus: 'not_started', checkDate: 'Scheduled', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false, deliverDate: '10/30 Fri', deliverStatus: 'not_started', collectDate: '11/9 Mon', collectStatus: 'not_started', checkDate: 'Scheduled', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false, deliverDate: '10/30 Fri', deliverStatus: 'not_started', collectDate: '11/9 Mon', collectStatus: 'not_started', checkDate: 'Scheduled', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-tian', memberName: 'Dan', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false, deliverDate: '10/30 Fri', deliverStatus: 'not_started', collectDate: '11/9 Mon', collectStatus: 'not_started', checkDate: 'Scheduled', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' }
     ],
     deliverDateText: '10/30 Fri',
     deliverCompleted: false,
@@ -258,10 +341,10 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Target: 1,184+180= 1,364',
     cumulativeFinished: 1364,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '100', numericCount: 100, finishedCount: 0, completed: false, danVerified: false },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '100', numericCount: 100, finishedCount: 0, completed: false, danVerified: false, deliverDate: '11/6 Fri', deliverStatus: 'not_started', collectDate: '11/16 Mon', collectStatus: 'not_started', checkDate: 'Upcoming', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false, deliverDate: '11/6 Fri', deliverStatus: 'not_started', collectDate: '11/16 Mon', collectStatus: 'not_started', checkDate: 'Upcoming', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false, deliverDate: '11/6 Fri', deliverStatus: 'not_started', collectDate: '11/16 Mon', collectStatus: 'not_started', checkDate: 'Upcoming', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false, deliverDate: '11/6 Fri', deliverStatus: 'not_started', collectDate: '11/16 Mon', collectStatus: 'not_started', checkDate: 'Upcoming', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' }
     ],
     deliverDateText: '11/6 Fri',
     deliverCompleted: false,
@@ -283,10 +366,10 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Target: 1,364+180= 1,544',
     cumulativeFinished: 1544,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '100', numericCount: 100, finishedCount: 0, completed: false, danVerified: false },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '100', numericCount: 100, finishedCount: 0, completed: false, danVerified: false, deliverDate: '11/13 Fri', deliverStatus: 'not_started', collectDate: '11/24 Tue', collectStatus: 'not_started', checkDate: 'Upcoming', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false, deliverDate: '11/13 Fri', deliverStatus: 'not_started', collectDate: '11/24 Tue', collectStatus: 'not_started', checkDate: 'Upcoming', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false, deliverDate: '11/13 Fri', deliverStatus: 'not_started', collectDate: '11/24 Tue', collectStatus: 'not_started', checkDate: 'Upcoming', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false, deliverDate: '11/13 Fri', deliverStatus: 'not_started', collectDate: '11/24 Tue', collectStatus: 'not_started', checkDate: 'Upcoming', checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' }
     ],
     deliverDateText: '11/13 Fri',
     deliverCompleted: false,
@@ -302,14 +385,74 @@ export const getInitialRoundData = (): RoundRow[] => [
 ];
 
 const sanitizeRounds = (data: any[]): RoundRow[] => {
-  return data.map(r => ({
-    ...r,
-    allocations: (r.allocations || []).map((a: any) => ({
-      ...a,
-      finishedCount: typeof a.finishedCount === 'number' ? a.finishedCount : (a.completed ? a.numericCount : 0),
-      danVerified: typeof a.danVerified === 'boolean' ? a.danVerified : (r.round <= 2 ? true : false)
-    }))
-  }));
+  return data.map(r => {
+    const isRoundDelivered = r.deliverCompleted ?? (Number(r.round) <= 3);
+    const isRoundCollected = r.collectCompleted ?? (Number(r.round) <= 2);
+    const isRoundBackup = r.backupCompleted ?? (Number(r.round) === 1);
+
+    const allocations = (r.allocations || []).map((a: any) => {
+      let deliverStatus: DeliveryStatus = a.deliverStatus;
+      if (!deliverStatus) {
+        deliverStatus = isRoundDelivered ? 'delivered' : 'not_started';
+      }
+      const deliverDate = a.deliverDate || r.deliverDateText || '';
+
+      let collectStatus: CollectStatus = a.collectStatus;
+      if (!collectStatus) {
+        collectStatus = isRoundCollected ? 'collected' : 'not_started';
+      }
+      const collectDate = a.collectDate || r.collectDateText || '';
+
+      let checkStatus: CheckStatus = a.checkStatus;
+      if (!checkStatus) {
+        if (Number(r.round) === 1 || a.danVerified) {
+          checkStatus = 'verified';
+        } else if (Number(r.round) === 2) {
+          if (a.memberName?.toLowerCase().includes('tantu')) checkStatus = 'reprocessing';
+          else if (a.memberName?.toLowerCase().includes('dan')) checkStatus = 'qc_checked';
+          else checkStatus = 'in_progress';
+        } else if (Number(r.round) === 3 && a.memberName?.toLowerCase().includes('anindya')) {
+          checkStatus = 'in_progress';
+        } else if (a.finishedCount >= a.numericCount && a.numericCount > 0) {
+          checkStatus = 'qc_checked';
+        } else if (a.finishedCount > 0) {
+          checkStatus = 'in_progress';
+        } else {
+          checkStatus = 'not_started';
+        }
+      }
+      const checkDate = a.checkDate || r.checkDateText || '';
+
+      let backupStatus: BackupStatus = a.backupStatus;
+      if (!backupStatus) {
+        backupStatus = isRoundBackup ? 'backed_up' : 'not_started';
+      }
+      const backupDate = a.backupDate || r.backupDateText || 'Pending';
+
+      return {
+        ...a,
+        finishedCount: typeof a.finishedCount === 'number' ? a.finishedCount : (a.completed ? a.numericCount : 0),
+        danVerified: checkStatus === 'verified' ? true : (typeof a.danVerified === 'boolean' ? a.danVerified : (Number(r.round) <= 1)),
+        deliverStatus,
+        deliverDate,
+        collectStatus,
+        collectDate,
+        checkStatus,
+        checkDate,
+        checkNotes: a.checkNotes || '',
+        backupStatus,
+        backupDate
+      };
+    });
+
+    return {
+      ...r,
+      deliverCompleted: isRoundDelivered,
+      collectCompleted: isRoundCollected,
+      backupCompleted: isRoundBackup,
+      allocations
+    };
+  });
 };
 
 const CONGRATULATION_TEMPLATES = [
@@ -343,17 +486,18 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
   const [adminMode, setAdminMode] = useState<boolean>(() => {
     const saved = localStorage.getItem('ersl_reservoir_admin_mode');
     if (saved !== null) return saved === 'true';
-    return false; // Member mode by default so members experience sample progress updates
+    return false;
   });
 
   const isAdmin = isEmailAdmin || isRoleAdmin || adminMode;
-  // Dan or Admin can perform quality checks
+  // Dan or Admin can manage assignments, add/remove members, and update QC/delivery statuses
+  const canManageAssignments = isAdmin || isDanTian;
   const canVerifyQuality = isAdmin || isDanTian;
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+    setTimeout(() => setToastMessage(null), 3500);
   };
 
   // View Mode: 'protocol' (Table 2 Format Table) vs 'matrix' (Member Columns Grid)
@@ -365,6 +509,43 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMember, setFilterMember] = useState<string>('all');
+
+  // Inline date editing state: { roundId, memberName, field: 'deliver'|'collect'|'check'|'backup', tempVal }
+  const [editingDateCell, setEditingDateCell] = useState<{
+    roundId: string;
+    memberName: string;
+    field: 'deliver' | 'collect' | 'check' | 'backup';
+    tempVal: string;
+  } | null>(null);
+
+  // Popover selector for Check Date status menu
+  const [checkStatusMenu, setCheckStatusMenu] = useState<{
+    roundId: string;
+    memberName: string;
+  } | null>(null);
+
+  // Add Member Modal state (Admin / Dan can add member to that particular week/round)
+  const [addMemberModal, setAddMemberModal] = useState<{
+    isOpen: boolean;
+    roundId: string;
+    roundNum: number | string;
+    defaultDeliverDate: string;
+    defaultCollectDate: string;
+  } | null>(null);
+
+  const [newMemberForm, setNewMemberForm] = useState<{
+    memberName: string;
+    customName: string;
+    workloadCount: string;
+    deliverDate: string;
+    collectDate: string;
+  }>({
+    memberName: 'Saravanan Raju',
+    customName: '',
+    workloadCount: '25',
+    deliverDate: '',
+    collectDate: ''
+  });
 
   // Congratulations modal
   const [congratsModal, setCongratsModal] = useState<{
@@ -389,13 +570,16 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     });
   };
 
-  // Load round data from localStorage (persisted across edits, never reset automatically)
+  // Load round data from localStorage (persisted across edits)
   const [rounds, setRounds] = useState<RoundRow[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return sanitizeRounds(parsed);
+      const savedV3 = localStorage.getItem(STORAGE_KEY);
+      if (savedV3) {
+        return sanitizeRounds(JSON.parse(savedV3));
+      }
+      const savedV2 = localStorage.getItem('ersl_reservoir_project_v2');
+      if (savedV2) {
+        return sanitizeRounds(JSON.parse(savedV2));
       }
     } catch (e) {
       console.error('Failed to parse saved reservoir round data', e);
@@ -412,17 +596,31 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     }
   }, [rounds]);
 
-  // SMART AUTO-ADVANCING ACTIVE SPRINT:
-  // Automatically detects the current sprint round as the earliest round
-  // that is not yet 100% completed & verified by Dr. Dan Tian.
-  // As soon as all members in Round 3 finish and Dan verifies them,
-  // it AUTOMATICALLY advances to Round 4, then Round 5, etc.
+  // =========================================================================
+  // REQUIREMENT 4: AUTOMATIC UPDATION BASED ON DELIVERY DATE
+  // Automatically detects the active sprint round based on Delivery Date.
+  // When a round is delivered and made green by Dan or Admin,
+  // it locks to that round, auto-selects Dual View (Combined: Overall + Round Progress).
+  // =========================================================================
   const autoDetectedActiveRound = useMemo(() => {
-    const currentUnfinished = rounds.find(r => {
-      if (r.allocations.length === 0) return true;
-      return r.allocations.some(a => !a.danVerified);
+    // Find the round that has been delivered (green) but whose quality check is not yet 100% verified
+    const activeDeliveredRound = rounds.find(r => {
+      const isDelivered = r.deliverCompleted || r.allocations.some(a => a.deliverStatus === 'delivered');
+      const isRoundDone = r.allocations.length > 0 && r.allocations.every(a => a.checkStatus === 'verified' || a.danVerified);
+      return isDelivered && !isRoundDone;
     });
-    return currentUnfinished ? Number(currentUnfinished.round) : Number(rounds[rounds.length - 1]?.round || 1);
+
+    if (activeDeliveredRound) {
+      return Number(activeDeliveredRound.round);
+    }
+
+    // Next scheduled round if all currently delivered rounds are finished
+    const nextScheduled = rounds.find(r => !r.deliverCompleted && r.allocations.every(a => a.deliverStatus !== 'delivered'));
+    if (nextScheduled) {
+      return Number(nextScheduled.round);
+    }
+
+    return Number(rounds[rounds.length - 1]?.round || 1);
   }, [rounds]);
 
   // Optional manual round override (null = auto-advancement is active)
@@ -441,7 +639,9 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       { id: 'person-seo', name: 'Jihee Seo', shortName: 'Jihee' },
       { id: 'person-mandal', name: 'Tantu Mandal', shortName: 'Tantu' },
       { id: 'person-palaparthi', name: 'Anindya Palaparthi', shortName: 'Anindya' },
-      { id: 'person-tian', name: 'Dr. Dan Tian', shortName: 'Dan' }
+      { id: 'person-tian', name: 'Dr. Dan Tian', shortName: 'Dan' },
+      { id: 'person-miliutina', name: 'Ms. Yuliia Miliutina', shortName: 'Yuliia' },
+      { id: 'person-liu', name: 'Dr. Hongxing Liu', shortName: 'Hongxing' }
     ];
 
     known.forEach(k => {
@@ -473,22 +673,17 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       pendingQc: number;
       tasksCount: number;
       completedTasks: number;
-    }> = {
-      'Saravanan': { name: 'Saravanan Raju', assigned: 0, finished: 0, qualityVerified: 0, pendingQc: 0, tasksCount: 0, completedTasks: 0 },
-      'Jihee': { name: 'Jihee Seo', assigned: 0, finished: 0, qualityVerified: 0, pendingQc: 0, tasksCount: 0, completedTasks: 0 },
-      'Tantu': { name: 'Tantu Mandal', assigned: 0, finished: 0, qualityVerified: 0, pendingQc: 0, tasksCount: 0, completedTasks: 0 },
-      'Anindya': { name: 'Anindya Palaparthi', assigned: 0, finished: 0, qualityVerified: 0, pendingQc: 0, tasksCount: 0, completedTasks: 0 },
-      'Dan': { name: 'Dr. Dan Tian', assigned: 0, finished: 0, qualityVerified: 0, pendingQc: 0, tasksCount: 0, completedTasks: 0 }
-    };
+    }> = {};
 
     rounds.forEach(r => {
       grandAllocated += r.basinNumericTotal || 0;
 
       r.allocations.forEach(a => {
         grandFinished += a.finishedCount || 0;
-        if (a.danVerified) {
+        const isVerified = a.checkStatus === 'verified' || a.danVerified;
+        if (isVerified) {
           qualityVerifiedCount += a.finishedCount || 0;
-        } else if (a.finishedCount >= a.numericCount && a.numericCount > 0) {
+        } else if (a.checkStatus === 'qc_checked' || (a.finishedCount >= a.numericCount && a.numericCount > 0)) {
           pendingDanQcCount++;
         }
 
@@ -507,22 +702,24 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
         memberProgress[key].assigned += a.numericCount || 0;
         memberProgress[key].finished += a.finishedCount || 0;
         memberProgress[key].tasksCount++;
-        if (a.danVerified) {
+        if (isVerified) {
           memberProgress[key].qualityVerified += a.finishedCount || 0;
           memberProgress[key].completedTasks++;
-        } else if (a.finishedCount >= a.numericCount && a.numericCount > 0) {
+        } else if (a.checkStatus === 'qc_checked' || (a.finishedCount >= a.numericCount && a.numericCount > 0)) {
           memberProgress[key].pendingQc++;
         }
       });
     });
 
     // Metrics for the currently selected active sprint / round
-    const targetRoundObj = rounds.find(r => Number(r.round) === Number(activeSprintRound)) || rounds[2];
+    const targetRoundObj = rounds.find(r => Number(r.round) === Number(activeSprintRound)) || rounds[0];
     const roundMemberMetrics: Record<string, {
       assigned: number;
       finished: number;
       completed: boolean;
       danVerified: boolean;
+      checkStatus?: CheckStatus;
+      deliverStatus?: DeliveryStatus;
     }> = {};
 
     if (targetRoundObj) {
@@ -531,8 +728,10 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
         roundMemberMetrics[key] = {
           assigned: a.numericCount || 0,
           finished: a.finishedCount || 0,
-          completed: a.completed,
-          danVerified: a.danVerified
+          completed: a.completed || (a.numericCount > 0 && a.finishedCount >= a.numericCount),
+          danVerified: a.checkStatus === 'verified' || a.danVerified,
+          checkStatus: a.checkStatus,
+          deliverStatus: a.deliverStatus
         };
       });
     }
@@ -577,9 +776,24 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     });
   }, [rounds, searchQuery, filterMember]);
 
+  // Unique member names for Matrix View
+  const matrixMemberNames = useMemo(() => {
+    const list: string[] = ['Saravanan', 'Jihee', 'Tantu', 'Anindya', 'Dan'];
+    rounds.forEach(r => {
+      r.allocations.forEach(a => {
+        const sName = a.memberName.split(' ')[0];
+        if (!list.includes(sName)) {
+          list.push(sName);
+        }
+      });
+    });
+    return list;
+  }, [rounds]);
+
   // =========================================================================
-  // MEMBER SAMPLE & PROCESS COMPLETION MODAL STATE
-  // Editable in BOTH Member Mode and Admin Mode
+  // REQUIREMENT 1: NUMBER (MEMBER WORKLOAD) & PROGRESS EDITING MODAL
+  // Regular members can ONLY edit finishedCount (their work progress number).
+  // Dan or Admin can edit numericCount / countText (assigned targets) as well.
   // =========================================================================
   const [sampleModal, setSampleModal] = useState<{
     roundId: string;
@@ -588,9 +802,8 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     memberId: string;
     memberName: string;
     numericCount: number;
+    countText: string;
     finishedCount: number;
-    completed: boolean;
-    danVerified: boolean;
     notes?: string;
   } | null>(null);
 
@@ -602,9 +815,8 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       memberId: a.memberId,
       memberName: a.memberName,
       numericCount: a.numericCount,
+      countText: a.countText,
       finishedCount: a.finishedCount,
-      completed: a.completed,
-      danVerified: a.danVerified,
       notes: a.notes || ''
     });
   };
@@ -614,8 +826,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     if (!sampleModal) return;
 
     const isNewlyCompleted = 
-      (sampleModal.completed || sampleModal.finishedCount >= sampleModal.numericCount) && 
-      sampleModal.numericCount > 0;
+      sampleModal.finishedCount >= sampleModal.numericCount && sampleModal.numericCount > 0;
 
     setRounds(prev => prev.map(r => {
       if (r.id !== sampleModal.roundId) return r;
@@ -623,15 +834,21 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
         ...r,
         allocations: r.allocations.map(a => {
           if (a.memberName.toLowerCase() === sampleModal.memberName.toLowerCase()) {
-            const isDone = sampleModal.completed || (sampleModal.finishedCount >= sampleModal.numericCount && sampleModal.numericCount > 0);
-            return {
+            const isDone = sampleModal.finishedCount >= sampleModal.numericCount && sampleModal.numericCount > 0;
+            const updatedAlloc: MemberAllocation = {
               ...a,
               finishedCount: Math.max(0, sampleModal.finishedCount),
               completed: isDone,
-              danVerified: sampleModal.danVerified,
-              verifiedBy: sampleModal.danVerified ? (a.verifiedBy || 'Dr. Dan Tian') : undefined,
               notes: sampleModal.notes
             };
+
+            // If Dan or Admin, allow updating assigned workload target
+            if (canManageAssignments) {
+              updatedAlloc.countText = sampleModal.countText;
+              updatedAlloc.numericCount = parseInt(sampleModal.countText) || sampleModal.numericCount;
+            }
+
+            return updatedAlloc;
           }
           return a;
         })
@@ -643,11 +860,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     const finishedCount = sampleModal.finishedCount;
 
     setSampleModal(null);
-    showToast(`Updated sample progress for ${memberName} in Round ${roundNum}!`);
-
-    if (isNewlyCompleted && !sampleModal.danVerified) {
-      showToast(`${memberName} marked finished! Staged for Dr. Dan Tian's Quality Check.`);
-    }
+    showToast(`Updated progress for ${memberName} in Round ${roundNum}!`);
 
     if (isNewlyCompleted) {
       setTimeout(() => {
@@ -656,125 +869,345 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     }
   };
 
-  // Dan's 1-Click Quality Sign-Off Function
-  const handleDanQualitySignOff = (roundId: string, memberName: string) => {
+  // =========================================================================
+  // REQUIREMENT 1: ADD & REMOVE MEMBER PER ROUND (DAN / ADMIN ONLY)
+  // =========================================================================
+  const handleOpenAddMemberModal = (r: RoundRow) => {
+    if (!canManageAssignments) {
+      showToast('Only Dr. Dan Tian or Lab Admin can assign members.');
+      return;
+    }
+    setNewMemberForm({
+      memberName: 'Saravanan Raju',
+      customName: '',
+      workloadCount: '20',
+      deliverDate: r.deliverDateText || '',
+      collectDate: r.collectDateText || ''
+    });
+    setAddMemberModal({
+      isOpen: true,
+      roundId: r.id,
+      roundNum: r.round,
+      defaultDeliverDate: r.deliverDateText || '',
+      defaultCollectDate: r.collectDateText || ''
+    });
+  };
+
+  const handleConfirmAddMember = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addMemberModal) return;
+
+    const chosenName = (newMemberForm.memberName === 'Other' ? newMemberForm.customName : newMemberForm.memberName).trim();
+    if (!chosenName) {
+      showToast('Please specify a member name.');
+      return;
+    }
+
+    const countNum = parseInt(newMemberForm.workloadCount) || 0;
+    const countStr = newMemberForm.workloadCount.trim() || '0';
+
+    setRounds(prev => prev.map(r => {
+      if (r.id !== addMemberModal.roundId) return r;
+
+      // Check if already in this round
+      const exists = r.allocations.some(a => a.memberName.toLowerCase().includes(chosenName.toLowerCase().split(' ')[0]));
+      if (exists) {
+        showToast(`${chosenName} is already assigned to Round ${r.round}.`);
+        return r;
+      }
+
+      const newAlloc: MemberAllocation = {
+        memberId: `person-${chosenName.toLowerCase().replace(/\s+/g, '-')}`,
+        memberName: chosenName,
+        countText: countStr,
+        numericCount: countNum,
+        finishedCount: 0,
+        completed: false,
+        danVerified: false,
+        deliverDate: newMemberForm.deliverDate || r.deliverDateText || '',
+        deliverStatus: r.deliverCompleted ? 'delivered' : 'not_started',
+        collectDate: newMemberForm.collectDate || r.collectDateText || '',
+        collectStatus: r.collectCompleted ? 'collected' : 'not_started',
+        checkDate: r.checkDateText || 'Scheduled',
+        checkStatus: 'not_started',
+        checkNotes: '',
+        backupDate: r.backupDateText || 'Pending',
+        backupStatus: 'not_started'
+      };
+
+      return {
+        ...r,
+        allocations: [...r.allocations, newAlloc]
+      };
+    }));
+
+    setAddMemberModal(null);
+    showToast(`Assigned ${chosenName} (${countStr} reservoirs) to Round ${addMemberModal.roundNum}!`);
+  };
+
+  const handleRemoveMemberFromRound = (roundId: string, memberName: string) => {
+    if (!canManageAssignments) {
+      showToast('Only Dr. Dan Tian or Lab Admin can remove assigned members.');
+      return;
+    }
+
+    setRounds(prev => prev.map(r => {
+      if (r.id !== roundId) return r;
+      const targetRoundNum = r.round;
+      const remaining = r.allocations.filter(a => a.memberName.toLowerCase() !== memberName.toLowerCase());
+      return {
+        ...r,
+        allocations: remaining
+      };
+    }));
+
+    showToast(`Removed ${memberName} from this round.`);
+  };
+
+  // =========================================================================
+  // REQUIREMENT 3 & 4: MEMBER-WISE DELIVERY DATE STATUS & AUTO SELECTION
+  // When Dan/Admin sets delivery to green, automatically selects active sprint
+  // and selects the Overall + current week progress tab!
+  // =========================================================================
+  const handleToggleMemberDelivery = (roundId: string, memberName: string) => {
+    if (!canManageAssignments) {
+      showToast('Delivery status and dates are managed by Dr. Dan Tian or Lab Admin.');
+      return;
+    }
+
+    setRounds(prev => prev.map(r => {
+      if (r.id !== roundId) return r;
+
+      let becameDelivered = false;
+      const updatedAllocations = r.allocations.map(a => {
+        if (a.memberName.toLowerCase() === memberName.toLowerCase()) {
+          const nextStatus: DeliveryStatus = a.deliverStatus === 'delivered' ? 'not_started' : 'delivered';
+          if (nextStatus === 'delivered') becameDelivered = true;
+          return {
+            ...a,
+            deliverStatus: nextStatus
+          };
+        }
+        return a;
+      });
+
+      const allDelivered = updatedAllocations.length > 0 && updatedAllocations.every(a => a.deliverStatus === 'delivered');
+      const anyDelivered = updatedAllocations.some(a => a.deliverStatus === 'delivered');
+
+      // REQUIREMENT 4: If delivered and made green by Dan or Admin,
+      // auto-select that current assigned week progress + overall tab!
+      if (becameDelivered) {
+        setTimeout(() => {
+          setManualRoundOverride(Number(r.round));
+          setProgressTab('combined');
+          showToast(`⚡ Round ${r.round} Delivery Green! Auto-selected Dual Progress View (Overall + Round ${r.round} Progress).`);
+        }, 60);
+      }
+
+      return {
+        ...r,
+        deliverCompleted: allDelivered || anyDelivered,
+        allocations: updatedAllocations
+      };
+    }));
+  };
+
+  // Quick toggle entire round delivery
+  const handleToggleDeliver = (roundId: string) => {
+    if (!canManageAssignments) {
+      showToast('Delivery status is managed by Dr. Dan Tian or Lab Admin.');
+      return;
+    }
+    setRounds(prev => prev.map(r => {
+      if (r.id !== roundId) return r;
+      const nextVal = !r.deliverCompleted;
+      const nextStatus: DeliveryStatus = nextVal ? 'delivered' : 'not_started';
+      const updatedAllocations = r.allocations.map(a => ({
+        ...a,
+        deliverStatus: nextStatus
+      }));
+
+      // REQUIREMENT 4: Auto-select Overall Tab + current assigned week progress
+      if (nextVal) {
+        setTimeout(() => {
+          setManualRoundOverride(Number(r.round));
+          setProgressTab('combined');
+          showToast(`⚡ Round ${r.round} Marked Delivered! Auto-selected Dual View (Overall + Round ${r.round} Week Progress).`);
+        }, 60);
+      }
+
+      return {
+        ...r,
+        deliverCompleted: nextVal,
+        allocations: updatedAllocations
+      };
+    }));
+  };
+
+  // =========================================================================
+  // REQUIREMENT 3: MEMBER-WISE COLLECT DATE STATUS
+  // =========================================================================
+  const handleToggleMemberCollect = (roundId: string, memberName: string) => {
+    if (!canManageAssignments) {
+      showToast('Collection status and dates are managed by Dr. Dan Tian or Lab Admin.');
+      return;
+    }
+    setRounds(prev => prev.map(r => {
+      if (r.id !== roundId) return r;
+      const updatedAllocations = r.allocations.map(a => {
+        if (a.memberName.toLowerCase() === memberName.toLowerCase()) {
+          const nextStatus: CollectStatus = a.collectStatus === 'collected' ? 'not_started' : 'collected';
+          return { ...a, collectStatus: nextStatus };
+        }
+        return a;
+      });
+      const allCollected = updatedAllocations.length > 0 && updatedAllocations.every(a => a.collectStatus === 'collected');
+      return {
+        ...r,
+        collectCompleted: allCollected,
+        allocations: updatedAllocations
+      };
+    }));
+  };
+
+  const handleToggleCollect = (roundId: string) => {
+    if (!canManageAssignments) {
+      showToast('Collection status is managed in Admin Mode.');
+      return;
+    }
+    setRounds(prev => prev.map(r => {
+      if (r.id !== roundId) return r;
+      const nextVal = !r.collectCompleted;
+      const nextStatus: CollectStatus = nextVal ? 'collected' : 'not_started';
+      return {
+        ...r,
+        collectCompleted: nextVal,
+        allocations: r.allocations.map(a => ({ ...a, collectStatus: nextStatus }))
+      };
+    }));
+  };
+
+  // =========================================================================
+  // REQUIREMENT 3: MEMBER-WISE CHECK DATE (QC CHECK DATA) STATUSES
+  // 5 Status Options:
+  // ⚪ Empty circle: not yet started
+  // 🟠 Orange filled circle: in progress
+  // 🟣 Purple circle: QC checked by Dan
+  // 🔵 Blue filled circle: reprocessing
+  // 🟢 Solid green circle: Dan QC verified
+  // =========================================================================
+  const handleSetMemberCheckStatus = (roundId: string, memberName: string, nextStatus: CheckStatus) => {
+    if (!canManageAssignments) {
+      showToast('QC checkpoints and verification are managed by Dr. Dan Tian or Lab Admin.');
+      return;
+    }
+    setRounds(prev => prev.map(r => {
+      if (r.id !== roundId) return r;
+      const updatedAllocations = r.allocations.map(a => {
+        if (a.memberName.toLowerCase() === memberName.toLowerCase()) {
+          const isVerified = nextStatus === 'verified';
+          return {
+            ...a,
+            checkStatus: nextStatus,
+            danVerified: isVerified,
+            verifiedBy: isVerified ? 'Dr. Dan Tian' : undefined,
+            verifiedAt: isVerified ? new Date().toISOString() : undefined
+          };
+        }
+        return a;
+      });
+      const allVerified = updatedAllocations.length > 0 && updatedAllocations.every(a => a.checkStatus === 'verified');
+      return {
+        ...r,
+        checkCompleted: allVerified,
+        allocations: updatedAllocations
+      };
+    }));
+
+    const label = CHECK_STATUS_CONFIG.find(s => s.key === nextStatus)?.label || nextStatus;
+    showToast(`Dr. Dan Tian set ${memberName} QC status to: ${label}`);
+  };
+
+  const handleCycleMemberCheckStatus = (roundId: string, memberName: string) => {
+    const targetRound = rounds.find(r => r.id === roundId);
+    const alloc = targetRound?.allocations.find(a => a.memberName.toLowerCase() === memberName.toLowerCase());
+    const currentStatus = alloc?.checkStatus || 'not_started';
+    const statusOrder: CheckStatus[] = ['not_started', 'in_progress', 'qc_checked', 'reprocessing', 'verified'];
+    const currentIndex = statusOrder.indexOf(currentStatus);
+    const nextStatus = statusOrder[(currentIndex + 1) % statusOrder.length];
+    handleSetMemberCheckStatus(roundId, memberName, nextStatus);
+  };
+
+  // =========================================================================
+  // REQUIREMENT 3: MEMBER-WISE BACKUP DATE STATUS
+  // =========================================================================
+  const handleToggleMemberBackup = (roundId: string, memberName: string) => {
+    if (!canManageAssignments) {
+      showToast('Backup archive status is managed by Dr. Dan Tian or Lab Admin.');
+      return;
+    }
+    setRounds(prev => prev.map(r => {
+      if (r.id !== roundId) return r;
+      const updatedAllocations = r.allocations.map(a => {
+        if (a.memberName.toLowerCase() === memberName.toLowerCase()) {
+          const nextStatus: BackupStatus = a.backupStatus === 'backed_up' ? 'not_started' : 'backed_up';
+          return { ...a, backupStatus: nextStatus };
+        }
+        return a;
+      });
+      const allBackedUp = updatedAllocations.length > 0 && updatedAllocations.every(a => a.backupStatus === 'backed_up');
+      return {
+        ...r,
+        backupCompleted: allBackedUp,
+        allocations: updatedAllocations
+      };
+    }));
+  };
+
+  const handleToggleBackup = (roundId: string) => {
+    if (!canManageAssignments) {
+      showToast('Backup archive status is verified in Admin Mode.');
+      return;
+    }
+    setRounds(prev => prev.map(r => {
+      if (r.id !== roundId) return r;
+      const nextVal = !r.backupCompleted;
+      const nextStatus: BackupStatus = nextVal ? 'backed_up' : 'not_started';
+      return {
+        ...r,
+        backupCompleted: nextVal,
+        allocations: r.allocations.map(a => ({ ...a, backupStatus: nextStatus }))
+      };
+    }));
+  };
+
+  // Inline member date update handler
+  const handleUpdateMemberDate = (
+    roundId: string,
+    memberName: string,
+    field: 'deliver' | 'collect' | 'check' | 'backup',
+    newDate: string
+  ) => {
+    if (!canManageAssignments) {
+      showToast('Dates are managed by Dr. Dan Tian or Lab Admin.');
+      return;
+    }
     setRounds(prev => prev.map(r => {
       if (r.id !== roundId) return r;
       return {
         ...r,
         allocations: r.allocations.map(a => {
           if (a.memberName.toLowerCase() === memberName.toLowerCase()) {
-            const nextVal = !a.danVerified;
-            return {
-              ...a,
-              danVerified: nextVal,
-              completed: nextVal ? true : a.completed,
-              finishedCount: nextVal ? a.numericCount : a.finishedCount,
-              verifiedBy: nextVal ? 'Dr. Dan Tian' : undefined,
-              verifiedAt: nextVal ? new Date().toISOString() : undefined
-            };
+            if (field === 'deliver') return { ...a, deliverDate: newDate };
+            if (field === 'collect') return { ...a, collectDate: newDate };
+            if (field === 'check') return { ...a, checkDate: newDate };
+            if (field === 'backup') return { ...a, backupDate: newDate };
           }
           return a;
         })
       };
     }));
-
-    showToast(`Quality verification toggled by Dr. Dan Tian for ${memberName}!`);
-  };
-
-  // Toggle member allocation checkmark directly
-  const handleToggleMemberCompletion = (roundId: string, memberName: string) => {
-    setRounds(prev => prev.map(r => {
-      if (r.id !== roundId) return r;
-      let targetFinishedCount = 0;
-      let targetAllocatedName = '';
-      let isNewlyDone = false;
-
-      const updatedAllocations = r.allocations.map(a => {
-        if (a.memberName.toLowerCase() === memberName.toLowerCase()) {
-          const nextVal = !a.completed;
-          const updatedFinished = nextVal ? a.numericCount : 0;
-          if (nextVal) {
-            isNewlyDone = true;
-            targetFinishedCount = a.numericCount;
-            targetAllocatedName = a.memberName;
-          }
-          return { 
-            ...a, 
-            completed: nextVal,
-            finishedCount: updatedFinished 
-          };
-        }
-        return a;
-      });
-
-      if (isNewlyDone) {
-        setTimeout(() => {
-          triggerCongrats(targetAllocatedName, r.round, targetFinishedCount);
-        }, 200);
-      }
-
-      return {
-        ...r,
-        allocations: updatedAllocations
-      };
-    }));
-  };
-
-  // Admin toggles (Delivery, Collection, QA Check, Backup)
-  const handleToggleDeliver = (roundId: string) => {
-    if (!isAdmin) {
-      showToast('Delivery status is managed in Admin Mode.');
-      return;
-    }
-    setRounds(prev => prev.map(r => {
-      if (r.id !== roundId) return r;
-      return { ...r, deliverCompleted: !r.deliverCompleted };
-    }));
-  };
-
-  const handleToggleCollect = (roundId: string) => {
-    if (!isAdmin) {
-      showToast('Collection status is managed in Admin Mode.');
-      return;
-    }
-    setRounds(prev => prev.map(r => {
-      if (r.id !== roundId) return r;
-      return { ...r, collectCompleted: !r.collectCompleted };
-    }));
-  };
-
-  const handleToggleCheckItem = (roundId: string, itemId: string) => {
-    if (!isAdmin) {
-      showToast('QA/QC verification checkpoints are signed off in Admin Mode.');
-      return;
-    }
-    setRounds(prev => prev.map(r => {
-      if (r.id !== roundId) return r;
-      const updatedItems = r.checkItems.map(item => {
-        if (item.id === itemId) {
-          return { ...item, completed: !item.completed };
-        }
-        return item;
-      });
-      const allDone = updatedItems.length > 0 && updatedItems.every(i => i.completed);
-      return {
-        ...r,
-        checkItems: updatedItems,
-        checkCompleted: allDone
-      };
-    }));
-  };
-
-  const handleToggleBackup = (roundId: string) => {
-    if (!isAdmin) {
-      showToast('Backup archive status is verified in Admin Mode.');
-      return;
-    }
-    setRounds(prev => prev.map(r => {
-      if (r.id !== roundId) return r;
-      return { ...r, backupCompleted: !r.backupCompleted };
-    }));
+    showToast(`Updated ${field} date for ${memberName} to: ${newDate}`);
   };
 
   // Modal: Edit Round State (Admin Mode)
@@ -855,11 +1288,11 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     const subBasinsList = newRoundForm.subBasinsText.split('\n').map(s => s.trim()).filter(Boolean);
 
     const allocations: MemberAllocation[] = [];
-    if (newRoundForm.saravananCount) allocations.push({ memberId: 'person-raju', memberName: 'Saravanan', countText: newRoundForm.saravananCount, numericCount: parseInt(newRoundForm.saravananCount) || 0, finishedCount: 0, completed: false, danVerified: false });
-    if (newRoundForm.jiheeCount) allocations.push({ memberId: 'person-seo', memberName: 'Jihee', countText: newRoundForm.jiheeCount, numericCount: parseInt(newRoundForm.jiheeCount) || 0, finishedCount: 0, completed: false, danVerified: false });
-    if (newRoundForm.tantuCount) allocations.push({ memberId: 'person-mandal', memberName: 'Tantu', countText: newRoundForm.tantuCount, numericCount: parseInt(newRoundForm.tantuCount) || 0, finishedCount: 0, completed: false, danVerified: false });
-    if (newRoundForm.anindyaCount) allocations.push({ memberId: 'person-palaparthi', memberName: 'Anindya', countText: newRoundForm.anindyaCount, numericCount: parseInt(newRoundForm.anindyaCount) || 0, finishedCount: 0, completed: false, danVerified: false });
-    if (newRoundForm.danCount) allocations.push({ memberId: 'person-tian', memberName: 'Dan', countText: newRoundForm.danCount, numericCount: parseInt(newRoundForm.danCount) || 0, finishedCount: 0, completed: false, danVerified: false });
+    if (newRoundForm.saravananCount) allocations.push({ memberId: 'person-raju', memberName: 'Saravanan', countText: newRoundForm.saravananCount, numericCount: parseInt(newRoundForm.saravananCount) || 0, finishedCount: 0, completed: false, danVerified: false, deliverDate: newRoundForm.deliverDate, deliverStatus: 'not_started', collectDate: newRoundForm.collectDate, collectStatus: 'not_started', checkDate: newRoundForm.checkDate, checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' });
+    if (newRoundForm.jiheeCount) allocations.push({ memberId: 'person-seo', memberName: 'Jihee', countText: newRoundForm.jiheeCount, numericCount: parseInt(newRoundForm.jiheeCount) || 0, finishedCount: 0, completed: false, danVerified: false, deliverDate: newRoundForm.deliverDate, deliverStatus: 'not_started', collectDate: newRoundForm.collectDate, collectStatus: 'not_started', checkDate: newRoundForm.checkDate, checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' });
+    if (newRoundForm.tantuCount) allocations.push({ memberId: 'person-mandal', memberName: 'Tantu', countText: newRoundForm.tantuCount, numericCount: parseInt(newRoundForm.tantuCount) || 0, finishedCount: 0, completed: false, danVerified: false, deliverDate: newRoundForm.deliverDate, deliverStatus: 'not_started', collectDate: newRoundForm.collectDate, collectStatus: 'not_started', checkDate: newRoundForm.checkDate, checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' });
+    if (newRoundForm.anindyaCount) allocations.push({ memberId: 'person-palaparthi', memberName: 'Anindya', countText: newRoundForm.anindyaCount, numericCount: parseInt(newRoundForm.anindyaCount) || 0, finishedCount: 0, completed: false, danVerified: false, deliverDate: newRoundForm.deliverDate, deliverStatus: 'not_started', collectDate: newRoundForm.collectDate, collectStatus: 'not_started', checkDate: newRoundForm.checkDate, checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' });
+    if (newRoundForm.danCount) allocations.push({ memberId: 'person-tian', memberName: 'Dan', countText: newRoundForm.danCount, numericCount: parseInt(newRoundForm.danCount) || 0, finishedCount: 0, completed: false, danVerified: false, deliverDate: newRoundForm.deliverDate, deliverStatus: 'not_started', collectDate: newRoundForm.collectDate, collectStatus: 'not_started', checkDate: newRoundForm.checkDate, checkStatus: 'not_started', backupDate: 'Pending', backupStatus: 'not_started' });
 
     const newRow: RoundRow = {
       id: newId,
@@ -889,38 +1322,47 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
 
   // Export CSV
   const handleExportCSV = () => {
-    const headers = ['Round', 'Basin Details', 'Cumulative Finish', 'Member Allocations', 'Deliver Date', 'Deliver Done', 'Collect Date', 'Collect Done', 'Check Date & QA Notes', 'Dan Quality Checked', 'Backup Date'];
+    const headers = [
+      'Round',
+      'Basin Details',
+      'Cumulative Finish',
+      'Member Workload & Progress',
+      'Delivery Dates & Status',
+      'Collect Dates & Status',
+      'Check Dates & Dan QC Status',
+      'Backup Dates & Status'
+    ];
     
     const rows = rounds.map(r => {
       const basinStr = `"${r.basinTotalText} | ${r.subBasins.join('; ')}"`;
       const finishStr = `"${r.finishFormula || r.cumulativeFinished}"`;
-      const allocStr = `"${r.allocations.map(a => `${a.memberName}: ${a.finishedCount}/${a.numericCount} [${a.danVerified ? 'QC_VERIFIED' : a.completed ? 'PENDING_QC' : 'WORKING'}]`).join(', ')}"`;
-      const deliverDone = r.deliverCompleted ? 'Yes' : 'No';
-      const collectDone = r.collectCompleted ? 'Yes' : 'No';
-      const checkNotes = `"${r.checkDateText || ''} ${r.checkItems.map(i => `${i.headerDate ? i.headerDate + ': ' : ''}${i.text}`).join('; ')}"`;
-      const danQcDone = r.allocations.every(a => a.danVerified) ? 'All Verified' : 'In Progress';
-      const backupStr = r.backupCompleted ? 'Backed Up' : 'Pending';
+      const allocStr = `"${r.allocations.map(a => `${a.memberName}: ${a.finishedCount}/${a.numericCount}`).join(', ')}"`;
+      const deliverStr = `"${r.allocations.map(a => `${a.memberName}: ${a.deliverDate || '-'} [${a.deliverStatus === 'delivered' ? 'DELIVERED' : 'PENDING'}]`).join(', ')}"`;
+      const collectStr = `"${r.allocations.map(a => `${a.memberName}: ${a.collectDate || '-'} [${a.collectStatus === 'collected' ? 'COLLECTED' : 'PENDING'}]`).join(', ')}"`;
+      const checkStr = `"${r.allocations.map(a => `${a.memberName}: ${a.checkDate || '-'} [${a.checkStatus || 'not_started'}]`).join(', ')}"`;
+      const backupStr = `"${r.allocations.map(a => `${a.memberName}: ${a.backupDate || '-'} [${a.backupStatus === 'backed_up' ? 'BACKED_UP' : 'PENDING'}]`).join(', ')}"`;
 
-      return [r.round, basinStr, finishStr, allocStr, `"${r.deliverDateText}"`, deliverDone, `"${r.collectDateText}"`, collectDone, checkNotes, danQcDone, backupStr].join(',');
+      return [r.round, basinStr, finishStr, allocStr, deliverStr, collectStr, checkStr, backupStr].join(',');
     });
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `ERSL_Reservoir_Allocation_Protocol_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `ERSL_Reservoir_Protocol_Matrix_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    showToast('Exported ERSL Reservoir Protocol Matrix CSV!');
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-300">
-      
-      {/* Toast notification banner */}
+    <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-20 font-sans">
+
+      {/* Floating Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-5 right-5 z-[70] bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl border border-emerald-500/50 flex items-center gap-2.5 text-xs font-bold animate-in fade-in slide-in-from-top-4 duration-200">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+        <div className="fixed bottom-6 right-6 z-[100] bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl border border-slate-700 text-xs font-semibold flex items-center gap-2.5 animate-in slide-in-from-bottom-5 duration-200">
+          <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}
@@ -928,24 +1370,25 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       {/* =========================================================================
           TOP BANNER: ERSL RESERVOIR DATA ALLOCATION & DELINEATION PROTOCOL
           ========================================================================= */}
-      <div className="bg-gradient-to-r from-slate-900 via-[#1e293b] to-slate-900 rounded-2xl p-6 sm:p-8 text-white shadow-xl border border-slate-800 relative overflow-hidden">
-        <div className="absolute right-0 top-0 bottom-0 opacity-10 pointer-events-none flex items-center pr-6">
-          <Waves className="w-96 h-96 text-cyan-400" />
-        </div>
+      <div className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 rounded-2xl shadow-xl border border-slate-800 p-6 sm:p-8 text-white">
+        
+        {/* Ambient background decoration */}
+        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-96 h-96 rounded-full bg-[#9E1B32]/10 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 -mb-10 w-96 h-96 rounded-full bg-cyan-600/10 blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="flex items-center space-x-2">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-black tracking-widest uppercase bg-[#9E1B32] text-white border border-red-400/30">
-                ERSL Research Operations
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-[#9E1B32] text-white shadow-sm">
+                <Waves className="w-3.5 h-3.5" />
+                ERSL GeoAI & Hydrology Lab
               </span>
-              <span className="flex items-center gap-1 text-xs text-cyan-400 font-semibold">
-                <Sparkles className="w-3.5 h-3.5" />
-                PI: Dr. Hongxing Liu · QA Lead: Dr. Dan Tian
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-cyan-950/80 text-cyan-300 border border-cyan-800/80">
+                SWOT & SAR Water Segmentation
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-2.5">
-              <Waves className="w-8 h-8 text-cyan-400" />
+
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
               National Reservoir Delineation Protocol Table
             </h1>
             <p className="text-sm text-slate-300 max-w-3xl leading-relaxed">
@@ -962,7 +1405,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                 const next = !adminMode;
                 setAdminMode(next);
                 localStorage.setItem('ersl_reservoir_admin_mode', String(next));
-                showToast(next ? 'Admin Mode Active — All Sections Fully Editable' : 'Member Mode Active — Sample & Progress Editing Enabled');
+                showToast(next ? 'Admin Mode Active — Workload, Members & Dates Fully Editable' : 'Member Mode Active — Work Progress Editing Enabled');
               }}
               className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer border ${
                 isAdmin 
@@ -979,7 +1422,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               ) : (
                 <>
                   <UserCheck className="w-4 h-4 text-indigo-200" />
-                  <span>Member Mode: Edit Samples</span>
+                  <span>Member Mode: Progress Only</span>
                 </>
               )}
             </button>
@@ -1074,7 +1517,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
             </div>
             <span className="text-[11px] text-amber-400 font-semibold mt-1 inline-flex items-center gap-1">
               <Sparkles className="w-3 h-3 text-amber-300" />
-              {isAutoTracking ? 'Auto-Advances as rounds get verified' : 'Manual View Selected'}
+              {isAutoTracking ? 'Auto-tracks by Delivery Date' : 'Manual View Selected'}
             </span>
           </div>
 
@@ -1095,39 +1538,16 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               Completed by members & queued for Dan
             </p>
             <span className="text-[11px] text-purple-300 font-bold mt-1 inline-block">
-              {canVerifyQuality ? 'Click to inspect & sign off' : 'Pending Dan certification'}
+              {canVerifyQuality ? 'Click check date circle to verify' : 'Pending Dan certification'}
             </span>
           </div>
 
         </div>
-      </div>
-
-      {/* Workflow Explanation Banner */}
-      <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 p-4 rounded-xl border border-indigo-200/80 text-xs text-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-indigo-700 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
-            QA
-          </div>
-          <div className="space-y-0.5">
-            <span className="font-extrabold text-indigo-950 text-xs block">
-              Two-Stage Verification Pipeline: Member Delineation → Dr. Dan Tian Quality Certification
-            </span>
-            <p className="text-[11px] text-slate-600">
-              After a team member finishes their assigned samples, the status marks <strong>"Awaiting Dan's QC"</strong>. Only once <strong>Dr. Dan Tian</strong> verifies the delineation quality does it become <strong>"100% Quality Verified"</strong>.
-            </p>
-          </div>
-        </div>
-
-        {canVerifyQuality && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-extrabold text-[11px] shrink-0">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            Quality Inspector Privileges Active
-          </span>
-        )}
       </div>
 
       {/* =========================================================================
           PROGRESS DASHBOARD: BOTH OVERALL PROGRESS & CURRENT WEEK / ROUND PROGRESS
+          (Auto-selected upon Delivery marked green!)
           ========================================================================= */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-5">
         <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 pb-3 gap-3">
@@ -1139,7 +1559,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               </h2>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Track both current sprint (week/round) processing and overall lab accomplishments for each researcher.
+              Track both current sprint (assigned week) processing and overall lab accomplishments for each researcher.
             </p>
           </div>
 
@@ -1155,7 +1575,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                   const val = e.target.value;
                   if (val === 'auto') {
                     setManualRoundOverride(null);
-                    showToast(`Auto-Tracking Active: Round ${autoDetectedActiveRound} is the current sprint.`);
+                    showToast(`Auto-Tracking Active: Round ${autoDetectedActiveRound} is the active delivery sprint.`);
                   } else {
                     const num = parseInt(val) || 1;
                     setManualRoundOverride(num);
@@ -1167,17 +1587,12 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                   ⚡ Auto: Round {autoDetectedActiveRound} (Active Sprint)
                 </option>
                 {rounds.map(r => {
-                  const isRoundVerified = r.allocations.length > 0 && r.allocations.every(a => a.danVerified);
-                  const isRoundDone = r.allocations.length > 0 && r.allocations.every(a => a.completed);
-                  let statusTag = '';
-                  if (isRoundVerified) statusTag = '✓ Verified Done';
-                  else if (isRoundDone) statusTag = '🕒 Awaiting Dan QC';
-                  else if (Number(r.round) === autoDetectedActiveRound) statusTag = '⚡ Active Sprint';
-                  else statusTag = 'Scheduled';
-
+                  const isDelivered = r.deliverCompleted || r.allocations.some(a => a.deliverStatus === 'delivered');
+                  const isVerified = r.allocations.length > 0 && r.allocations.every(a => a.checkStatus === 'verified' || a.danVerified);
+                  let tag = isVerified ? '✓ Verified' : isDelivered ? '🟢 Delivered' : 'Scheduled';
                   return (
                     <option key={r.id} value={r.round}>
-                      Round {r.round} ({statusTag})
+                      Round {r.round} ({tag})
                     </option>
                   );
                 })}
@@ -1208,8 +1623,9 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                     ? 'bg-white text-[#9E1B32] shadow-xs font-black'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
+                title="View Both Current Assigned Week Progress and Overall Cumulative Progress"
               >
-                Dual View (Both)
+                Dual View (Both: Overall + Week)
               </button>
               <button
                 type="button"
@@ -1239,16 +1655,15 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
 
         {/* Dynamic Researcher Progress Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5">
-          {Object.entries(stats.memberProgress).map(([shortName, p]) => {
+          {Object.entries(stats.memberProgress).map(([shortName, p]: [string, any]) => {
             const memberInfo = teamMembers.get(shortName.toLowerCase());
             const roundMetric = currentRoundMetrics.roundMemberMetrics[shortName] || { assigned: 0, finished: 0, completed: false, danVerified: false };
             const roundPct = roundMetric.assigned > 0 ? Math.round((roundMetric.finished / roundMetric.assigned) * 100) : 0;
             const overallPct = p.assigned > 0 ? Math.round((p.finished / p.assigned) * 100) : 0;
             const isSelected = filterMember.toLowerCase() === shortName.toLowerCase();
 
-            // Quality status for the current sprint round
-            const isRoundDone = roundMetric.completed || (roundMetric.assigned > 0 && roundMetric.finished >= roundMetric.assigned);
             const isRoundVerified = roundMetric.danVerified;
+            const isRoundDone = roundMetric.completed || (roundMetric.assigned > 0 && roundMetric.finished >= roundMetric.assigned);
 
             return (
               <div 
@@ -1261,7 +1676,6 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                 }`}
                 title={isSelected ? "Click to clear filter" : `Click to filter schedule for ${shortName}`}
               >
-                {/* Header */}
                 <div>
                   <div className="flex items-center gap-2.5">
                     <div className="w-9 h-9 rounded-full bg-[#9E1B32] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm overflow-hidden border border-red-300/40">
@@ -1303,42 +1717,30 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                         />
                       </div>
 
-                      {/* Dan's Quality Verification Badge for this Round */}
                       <div className="flex items-center justify-between text-[10px] pt-0.5">
                         {isRoundVerified ? (
                           <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.5 rounded">
                             <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                            Dan QC Passed
+                            Dan QC Verified
                           </span>
-                        ) : isRoundDone ? (
+                        ) : roundMetric.checkStatus === 'qc_checked' ? (
                           <span className="inline-flex items-center gap-1 font-bold text-purple-700 bg-purple-100/80 px-1.5 py-0.5 rounded">
                             <Hourglass className="w-3 h-3 text-purple-600" />
-                            Awaiting Dan QC
+                            QC Checked
+                          </span>
+                        ) : roundMetric.checkStatus === 'reprocessing' ? (
+                          <span className="inline-flex items-center gap-1 font-bold text-sky-700 bg-sky-100/80 px-1.5 py-0.5 rounded">
+                            <Sliders className="w-3 h-3 text-sky-600" />
+                            Reprocessing
                           </span>
                         ) : roundMetric.finished > 0 ? (
-                          <span className="text-blue-600 font-bold">
+                          <span className="text-amber-700 font-bold">
                             {roundPct}% in progress
                           </span>
                         ) : (
                           <span className="text-slate-400 italic">
                             0 / {roundMetric.assigned}
                           </span>
-                        )}
-
-                        {/* If Dan or Admin is viewing and round is done but not verified, show 1-click verify */}
-                        {canVerifyQuality && isRoundDone && !isRoundVerified && currentRoundMetrics.roundObj && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDanQualitySignOff(currentRoundMetrics.roundObj.id, shortName);
-                            }}
-                            className="px-1.5 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded text-[9px] shadow-xs cursor-pointer flex items-center gap-0.5"
-                            title="Dr. Dan Tian Quality Sign-off"
-                          >
-                            <Check className="w-2.5 h-2.5" />
-                            Verify
-                          </button>
                         )}
                       </div>
                     </div>
@@ -1372,7 +1774,6 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                   )}
                 </div>
 
-                {/* Footer hint */}
                 <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[9px] text-slate-400">
                   <span>Click to view rounds</span>
                   <span>{shortName}</span>
@@ -1400,27 +1801,23 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
           />
         </div>
 
-        {/* Member filter & View Mode */}
+        {/* Member Filter & View Selector */}
         <div className="flex flex-wrap items-center gap-3">
-          
-          <div className="flex items-center gap-1.5">
-            <Users className="w-4 h-4 text-slate-400 shrink-0" />
-            <span className="text-xs font-semibold text-slate-600">Member:</span>
+          <div className="flex items-center gap-2">
+            <Filter className="w-3.5 h-3.5 text-slate-400" />
             <select
               value={filterMember}
               onChange={(e) => setFilterMember(e.target.value)}
-              className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#9E1B32]"
+              className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#9E1B32] cursor-pointer"
             >
-              <option value="all">All Researchers</option>
-              <option value="Saravanan">Saravanan Raju</option>
-              <option value="Jihee">Jihee Seo</option>
-              <option value="Tantu">Tantu Mandal</option>
-              <option value="Anindya">Anindya Palaparthi</option>
-              <option value="Dan">Dr. Dan Tian</option>
+              <option value="all">All Researchers (Full Table)</option>
+              {matrixMemberNames.map(m => (
+                <option key={m} value={m}>{m} only</option>
+              ))}
             </select>
           </div>
 
-          {/* View Toggle */}
+          {/* View Mode Toggle */}
           <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-bold">
             <button
               type="button"
@@ -1431,7 +1828,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Schedule Table
+              Official Protocol Table
             </button>
             <button
               type="button"
@@ -1442,89 +1839,114 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Matrix Grid
+              Member Matrix Grid
             </button>
           </div>
-
-          {(searchQuery || filterMember !== 'all') && (
-            <button
-              onClick={() => {
-                setSearchQuery('');
-                setFilterMember('all');
-              }}
-              className="text-xs text-rose-600 font-bold hover:underline px-2 py-1"
-            >
-              Clear Filters
-            </button>
-          )}
-
         </div>
       </div>
 
       {/* =========================================================================
-          THE MAIN INTERACTIVE TABLE: PROTOCOL TABLE
-          Columns: Round | Basin | Number | Diliver date | Collect date | Check date | Backup date
+          VIEW MODE 1: OFFICIAL ERSL RESERVOIR PROTOCOL TABLE
+          Columns: Round | Basin | Number | Delivery date | Collect date | Check date | Backup date
           ========================================================================= */}
       {viewMode === 'protocol' ? (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           
-          {/* Table Header Info */}
-          <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          {/* Table Header & Symbol Legend */}
+          <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-black text-slate-900 tracking-wide uppercase flex items-center gap-2 flex-wrap">
-                <span>Reservoir Allocation & Delineation Schedule</span>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
-                  {filteredRounds.length} Rounds
-                </span>
-                {filterMember !== 'all' && (
-                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-[#9E1B32] text-white flex items-center gap-1">
-                    <Users className="w-3 h-3" />
-                    Filtered: {filterMember}
-                  </span>
-                )}
-              </h2>
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-[#9E1B32]" />
+                <h2 className="text-sm font-black text-slate-900 tracking-wide uppercase">
+                  Reservoir Allocation & Delineation Schedule
+                </h2>
+              </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                {isAdmin 
-                  ? 'Admin Mode: All columns and dates are editable. Click any checkmark, sample count, or edit icon.' 
-                  : 'Member Mode: Click any member row or sample count in the "Number" column to update completed samples. Once finished, Dr. Dan Tian verifies quality.'
-                }
+                Table format matching ERSL protocol. Numbers, assignments, dates, and quality statuses update dynamically.
               </p>
             </div>
 
-            <div className="flex items-center gap-3 text-xs font-medium text-slate-600">
-              <span className="flex items-center gap-1">
-                <span className="w-3.5 h-3.5 rounded-full bg-emerald-600 flex items-center justify-center text-white text-[9px] font-bold">✓</span>
-                Dan QC Verified
+            {/* STATUS SYMBOLS LEGEND (Requirement 3) */}
+            <div className="flex flex-wrap items-center gap-2.5 text-[11px] font-semibold text-slate-700 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs">
+              <span className="text-[10px] uppercase font-black tracking-wider text-slate-400 mr-1">
+                Symbols:
               </span>
-              <span className="flex items-center gap-1">
-                <span className="w-3.5 h-3.5 rounded-full bg-purple-700 flex items-center justify-center text-white text-[9px] font-bold">✓</span>
-                Awaiting QC
+              <span className="flex items-center gap-1" title="Empty circle: Not Yet Started">
+                <span className="w-3.5 h-3.5 rounded-full border-2 border-slate-400 bg-white inline-block"></span>
+                <span className="text-slate-600">Not Started</span>
               </span>
-              <span className="flex items-center gap-1">
-                <span className="w-3.5 h-3.5 rounded-full border border-slate-400 bg-white"></span>
-                In Progress
+              <span className="flex items-center gap-1" title="Orange circle: In Progress">
+                <span className="w-3.5 h-3.5 rounded-full bg-amber-500 border border-amber-600 inline-block"></span>
+                <span className="text-amber-800 font-bold">In Progress</span>
+              </span>
+              <span className="flex items-center gap-1" title="Purple circle: QC Checked by Dan">
+                <span className="w-3.5 h-3.5 rounded-full bg-purple-700 border border-purple-800 inline-flex items-center justify-center text-white text-[8px] font-bold">✓</span>
+                <span className="text-purple-800 font-bold">Dan QC Checked</span>
+              </span>
+              <span className="flex items-center gap-1" title="Blue circle: Reprocessing / Needs Correction">
+                <span className="w-3.5 h-3.5 rounded-full bg-sky-500 border border-sky-600 inline-block"></span>
+                <span className="text-sky-800 font-bold">Reprocessing</span>
+              </span>
+              <span className="flex items-center gap-1" title="Solid green circle: Dan QC Verified / Done">
+                <span className="w-3.5 h-3.5 rounded-full bg-emerald-600 border border-emerald-700 inline-flex items-center justify-center text-white text-[8px] font-bold">✓</span>
+                <span className="text-emerald-800 font-bold">Dan Verified / Delivered</span>
               </span>
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[1050px]">
+            <table className="w-full text-left border-collapse min-w-[1100px]">
               <thead>
                 <tr className="bg-slate-100 text-slate-800 text-xs font-black border-b border-slate-200">
-                  <th className="py-3.5 px-4 w-16 text-center border-r border-slate-200">Round</th>
-                  <th className="py-3.5 px-4 w-72 border-r border-slate-200">Basin & Cumulative Finish</th>
-                  <th className="py-3.5 px-4 min-w-[320px] border-r border-slate-200">
+                  <th className="py-3.5 px-3 w-16 text-center border-r border-slate-200">Round</th>
+                  <th className="py-3.5 px-4 w-64 border-r border-slate-200">Basin & Cumulative Finish</th>
+                  
+                  {/* REQUIREMENT 1: Number (Member Workload) */}
+                  <th className="py-3.5 px-4 min-w-[280px] border-r border-slate-200">
                     <div className="flex items-center justify-between">
-                      <span>Number (Member Workload & Dan's QC)</span>
-                      <span className="text-[10px] text-[#9E1B32] font-extrabold uppercase bg-red-100 px-1.5 py-0.5 rounded">
-                        Editable
+                      <span>Number (Member Workload)</span>
+                      {canManageAssignments && (
+                        <span className="text-[10px] text-emerald-800 font-extrabold uppercase bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-200">
+                          Dan / Admin Edit
+                        </span>
+                      )}
+                    </div>
+                  </th>
+
+                  {/* REQUIREMENT 2 & 3: Delivery Date (Spelling Corrected) */}
+                  <th className="py-3.5 px-3 min-w-[170px] border-r border-slate-200">
+                    <div className="flex items-center justify-between">
+                      <span>Delivery Date</span>
+                      <span className="text-[9px] text-slate-400 font-normal">Member-wise</span>
+                    </div>
+                  </th>
+
+                  {/* REQUIREMENT 3: Collect Date */}
+                  <th className="py-3.5 px-3 min-w-[170px] border-r border-slate-200">
+                    <div className="flex items-center justify-between">
+                      <span>Collect Date</span>
+                      <span className="text-[9px] text-slate-400 font-normal">Member-wise</span>
+                    </div>
+                  </th>
+
+                  {/* REQUIREMENT 3: Check Date (QC Check Data) */}
+                  <th className="py-3.5 px-3 min-w-[230px] border-r border-slate-200">
+                    <div className="flex items-center justify-between">
+                      <span>Check Date</span>
+                      <span className="text-[9px] text-purple-700 font-bold uppercase bg-purple-50 px-1 rounded">
+                        QC Check Data
                       </span>
                     </div>
                   </th>
-                  <th className="py-3.5 px-4 w-36 border-r border-slate-200">Diliver date</th>
-                  <th className="py-3.5 px-4 w-36 border-r border-slate-200">Collect date</th>
-                  <th className="py-3.5 px-4 min-w-[220px] border-r border-slate-200">Check date</th>
-                  <th className="py-3.5 px-4 w-32 border-r border-slate-200">Backup date</th>
+
+                  {/* REQUIREMENT 3: Backup Date */}
+                  <th className="py-3.5 px-3 min-w-[160px] border-r border-slate-200">
+                    <div className="flex items-center justify-between">
+                      <span>Backup Date</span>
+                      <span className="text-[9px] text-slate-400 font-normal">Member-wise</span>
+                    </div>
+                  </th>
+
                   {isAdmin && (
                     <th className="py-3.5 px-2 w-12 text-center text-slate-400">Actions</th>
                   )}
@@ -1540,7 +1962,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                   </tr>
                 ) : (
                   filteredRounds.map((r, index) => {
-                    const isAllMembersVerified = r.allocations.length > 0 && r.allocations.every(a => a.danVerified);
+                    const isAllMembersVerified = r.allocations.length > 0 && r.allocations.every(a => a.checkStatus === 'verified' || a.danVerified);
 
                     return (
                       <tr 
@@ -1550,7 +1972,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                         }`}
                       >
                         {/* 1. Round */}
-                        <td className="py-4 px-4 text-center font-black text-sm text-slate-900 border-r border-slate-200 align-top">
+                        <td className="py-4 px-3 text-center font-black text-sm text-slate-900 border-r border-slate-200 align-top">
                           <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full font-black border ${
                             Number(r.round) === activeSprintRound 
                               ? 'bg-[#9E1B32] text-white border-red-700 shadow-sm'
@@ -1604,13 +2026,16 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                           )}
                         </td>
 
-                        {/* 3. Number (Team Allocations - Editable for process completion, samples count & Dan QA) */}
+                        {/* =========================================================================
+                            3. NUMBER (MEMBER WORKLOAD) — REQUIREMENT 1
+                            - Editable by Dan or Admin (add/remove member, edit target workload)
+                            - Dan QC and double tick mark REMOVED from this column
+                            - Members can only edit their work progress number (finishedCount)
+                            ========================================================================= */}
                         <td className="py-4 px-4 border-r border-slate-200 align-top space-y-2">
-                          <div className="space-y-2">
+                          <div className="space-y-1.5">
                             {r.allocations.map((a, aIdx) => {
                               const isMemberHighlighted = filterMember !== 'all' && a.memberName.toLowerCase().includes(filterMember.toLowerCase());
-                              const isSamplesDone = a.completed || (a.numericCount > 0 && a.finishedCount >= a.numericCount);
-                              const isDanVerified = a.danVerified;
 
                               return (
                                 <div 
@@ -1621,39 +2046,11 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                                       : 'bg-slate-50/70 border-slate-200/80 hover:bg-white hover:border-slate-300 shadow-2xs'
                                   }`}
                                 >
-                                  {/* Status Checkbox / Indicator */}
-                                  <div 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleToggleMemberCompletion(r.id, a.memberName);
-                                    }}
-                                    className="shrink-0 cursor-pointer p-0.5"
-                                    title={
-                                      isDanVerified 
-                                        ? "Dr. Dan Tian Quality Verified (100% Complete)" 
-                                        : isSamplesDone 
-                                          ? "Member Samples Complete — Awaiting Dan's QC" 
-                                          : "Click to toggle complete / in-progress"
-                                    }
-                                  >
-                                    {isDanVerified ? (
-                                      <div className="w-5 h-5 rounded-full bg-emerald-600 flex items-center justify-center text-white shadow-xs">
-                                        <CheckCheck className="w-3.5 h-3.5 stroke-[3]" />
-                                      </div>
-                                    ) : isSamplesDone ? (
-                                      <div className="w-5 h-5 rounded-full bg-purple-700 flex items-center justify-center text-white shadow-xs">
-                                        <Check className="w-3.5 h-3.5 stroke-[3]" />
-                                      </div>
-                                    ) : (
-                                      <div className="w-5 h-5 rounded-full border-2 border-slate-400 bg-white hover:border-purple-600 transition-colors" />
-                                    )}
-                                  </div>
-
-                                  {/* Member name and sample count pill */}
+                                  {/* Member Name and Work Progress Number */}
                                   <div 
                                     onClick={() => handleOpenSampleModal(r, a)}
                                     className="flex items-center justify-between flex-1 text-xs cursor-pointer hover:text-[#9E1B32] transition-colors"
-                                    title="Click to update completed samples count"
+                                    title={canManageAssignments ? "Click to edit workload targets & progress (Admin/Dan)" : "Click to edit your work progress number"}
                                   >
                                     <span className="font-bold text-slate-800">
                                       {a.memberName}:
@@ -1661,13 +2058,11 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
 
                                     <div className="flex items-center gap-1.5">
                                       <span className={`font-mono text-[11px] font-extrabold px-2 py-0.5 rounded border ${
-                                        isDanVerified
-                                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                          : isSamplesDone 
-                                            ? 'bg-purple-50 text-purple-800 border-purple-200' 
-                                            : a.finishedCount > 0
-                                              ? 'bg-blue-50 text-blue-800 border-blue-200'
-                                              : 'bg-white text-slate-800 border-slate-300'
+                                        a.finishedCount >= a.numericCount && a.numericCount > 0
+                                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                                          : a.finishedCount > 0
+                                            ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                            : 'bg-white text-slate-800 border-slate-300'
                                       }`}>
                                         {a.finishedCount} / {a.countText}
                                       </span>
@@ -1675,161 +2070,512 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                                     </div>
                                   </div>
 
-                                  {/* Dan's Quality Sign-off Badge / Button */}
-                                  <div className="shrink-0 flex items-center gap-1">
-                                    {isDanVerified ? (
-                                      <span className="inline-flex items-center gap-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-200">
-                                        <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                                        Dan QC
-                                      </span>
-                                    ) : isSamplesDone ? (
-                                      canVerifyQuality ? (
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDanQualitySignOff(r.id, a.memberName);
-                                          }}
-                                          className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded text-[10px] shadow-xs cursor-pointer flex items-center gap-1"
-                                          title="Click to verify quality as Dr. Dan Tian"
-                                        >
-                                          <ShieldCheck className="w-3 h-3 text-emerald-200" />
-                                          Dan Verify
-                                        </button>
-                                      ) : (
-                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">
-                                          <Hourglass className="w-2.5 h-2.5 text-amber-600" />
-                                          Dan QC Req.
-                                        </span>
-                                      )
-                                    ) : null}
-                                  </div>
-
+                                  {/* Remove member from this week/round (Dan / Admin only) */}
+                                  {canManageAssignments && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (window.confirm(`Remove ${a.memberName} from Round ${r.round}?`)) {
+                                          handleRemoveMemberFromRound(r.id, a.memberName);
+                                        }
+                                      }}
+                                      className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                                      title={`Remove ${a.memberName} from Round ${r.round} (Admin/Dan)`}
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  )}
                                 </div>
                               );
                             })}
+
+                            {/* Dan / Admin: + Add Member to this particular week/round */}
+                            {canManageAssignments && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenAddMemberModal(r)}
+                                className="w-full mt-1.5 py-1 px-2 border border-dashed border-slate-300 hover:border-[#9E1B32] hover:bg-red-50/50 rounded-md text-[11px] font-extrabold text-slate-600 hover:text-[#9E1B32] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                title="Assign or add a member for this particular week/round (Admin/Dan)"
+                              >
+                                <UserPlus className="w-3 h-3" />
+                                <span>+ Add Member</span>
+                              </button>
+                            )}
                           </div>
                         </td>
 
-                        {/* 4. Diliver date */}
-                        <td className="py-4 px-4 border-r border-slate-200 align-top">
-                          <div 
-                            onClick={() => handleToggleDeliver(r.id)}
-                            className={`flex items-center gap-2 p-1.5 rounded-lg transition-colors ${
-                              isAdmin ? 'cursor-pointer hover:bg-slate-100/70' : 'cursor-default'
-                            }`}
-                            title={isAdmin ? "Click to toggle delivery status (Admin)" : "Delivery Date"}
-                          >
-                            <div className="shrink-0">
-                              {r.deliverCompleted ? (
-                                <div className="w-5 h-5 rounded-full bg-purple-700 flex items-center justify-center text-white shadow-xs">
-                                  <Check className="w-3.5 h-3.5 stroke-[3]" />
-                                </div>
-                              ) : (
-                                <div className="w-5 h-5 rounded-full border-2 border-slate-400 bg-white" />
-                              )}
-                            </div>
-                            <span className={`text-xs font-bold ${r.deliverCompleted ? 'text-emerald-700' : 'text-slate-700'}`}>
-                              {r.deliverDateText}
-                            </span>
-                          </div>
-                        </td>
-
-                        {/* 5. Collect date */}
-                        <td className="py-4 px-4 border-r border-slate-200 align-top">
-                          <div 
-                            onClick={() => handleToggleCollect(r.id)}
-                            className={`flex items-center gap-2 p-1.5 rounded-lg transition-colors ${
-                              isAdmin ? 'cursor-pointer hover:bg-slate-100/70' : 'cursor-default'
-                            }`}
-                            title={isAdmin ? "Click to toggle collection status (Admin)" : "Collect Date"}
-                          >
-                            <div className="shrink-0">
-                              {r.collectCompleted ? (
-                                <div className="w-5 h-5 rounded-full bg-emerald-600 flex items-center justify-center text-white shadow-xs">
-                                  <Check className="w-3.5 h-3.5 stroke-[3]" />
-                                </div>
-                              ) : (
-                                <div className="w-5 h-5 rounded-full border-2 border-slate-400 bg-white" />
-                              )}
-                            </div>
-                            <span className={`text-xs font-bold ${r.collectCompleted ? 'text-emerald-700' : 'text-slate-700'}`}>
-                              {r.collectDateText}
-                            </span>
-                          </div>
-                        </td>
-
-                        {/* 6. Check date (QA/QC Checkpoints) */}
-                        <td className="py-4 px-4 border-r border-slate-200 align-top space-y-2">
-                          {r.checkItems.length > 0 ? (
-                            <div className="space-y-1.5">
-                              {r.checkItems.map((item) => (
+                        {/* =========================================================================
+                            4. DELIVERY DATE (REQUIREMENTS 2, 3, 4)
+                            - Corrected spelling: "Delivery Date"
+                            - Member-wise list with Date + 2 symbols:
+                              ⚪ Empty circle (not yet started)
+                              🟢 Solid green circle (delivered)
+                            - Dan/Admin only can toggle status or change date
+                            - When marked green, triggers auto-selection of Overall + week progress!
+                            ========================================================================= */}
+                        <td className="py-4 px-3 border-r border-slate-200 align-top space-y-1.5">
+                          {r.allocations.map((a, aIdx) => (
+                            <div key={aIdx} className="flex items-center justify-between gap-1.5 p-1 rounded hover:bg-slate-100/70 transition-colors">
+                              <div className="flex items-center gap-1.5 min-w-0">
                                 <div 
-                                  key={item.id} 
-                                  onClick={() => handleToggleCheckItem(r.id, item.id)}
-                                  className={`flex items-start gap-2 p-1 rounded-md transition-colors ${
-                                    isAdmin ? 'hover:bg-slate-100 cursor-pointer' : 'cursor-default'
-                                  }`}
-                                  title={isAdmin ? "Click to toggle QA check item (Admin)" : "QA/QC Item"}
+                                  onClick={() => handleToggleMemberDelivery(r.id, a.memberName)}
+                                  className={`shrink-0 ${canManageAssignments ? 'cursor-pointer hover:scale-110 active:scale-95' : 'cursor-default'} transition-transform`}
+                                  title={canManageAssignments ? "Click to toggle delivery status (Admin/Dan)" : a.deliverStatus === 'delivered' ? 'Delivered' : 'Not yet started'}
                                 >
-                                  <div className="shrink-0 mt-0.5">
-                                    {item.completed ? (
-                                      <div className="w-4 h-4 rounded-full bg-purple-700 flex items-center justify-center text-white text-[10px]">
-                                        <Check className="w-3 h-3 stroke-[3]" />
-                                      </div>
-                                    ) : (
-                                      <div className="w-4 h-4 rounded-full border border-slate-400 bg-white" />
-                                    )}
-                                  </div>
-                                  <div className="text-[11px] leading-tight">
-                                    {item.headerDate && (
-                                      <span className="font-extrabold text-[#9E1B32] block">{item.headerDate}</span>
-                                    )}
-                                    <span className={`${item.completed ? 'line-through text-slate-400' : 'font-medium text-slate-800'}`}>
-                                      {item.text}
-                                    </span>
-                                  </div>
+                                  {a.deliverStatus === 'delivered' ? (
+                                    <div className="w-4 h-4 rounded-full bg-emerald-600 border border-emerald-700 flex items-center justify-center text-white shadow-xs">
+                                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                    </div>
+                                  ) : (
+                                    <div className="w-4 h-4 rounded-full border-2 border-slate-400 bg-white hover:border-emerald-600 transition-colors" />
+                                  )}
                                 </div>
-                              ))}
+                                <span className="text-[11px] font-semibold text-slate-800 truncate">
+                                  {a.memberName.split(' ')[0]}:
+                                </span>
+                              </div>
+
+                              {/* Editable Date for Dan / Admin */}
+                              <div className="shrink-0 text-right">
+                                {editingDateCell?.roundId === r.id && editingDateCell?.memberName === a.memberName && editingDateCell?.field === 'deliver' ? (
+                                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                    <input
+                                      type="text"
+                                      autoFocus
+                                      value={editingDateCell.tempVal}
+                                      onChange={(e) => setEditingDateCell({ ...editingDateCell, tempVal: e.target.value })}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          handleUpdateMemberDate(r.id, a.memberName, 'deliver', editingDateCell.tempVal);
+                                          setEditingDateCell(null);
+                                        } else if (e.key === 'Escape') {
+                                          setEditingDateCell(null);
+                                        }
+                                      }}
+                                      className="w-18 px-1 py-0.5 text-[10px] font-mono font-bold bg-white border border-blue-400 rounded outline-none shadow-xs"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleUpdateMemberDate(r.id, a.memberName, 'deliver', editingDateCell.tempVal);
+                                        setEditingDateCell(null);
+                                      }}
+                                      className="text-emerald-600 hover:text-emerald-700 p-0.5 cursor-pointer"
+                                    >
+                                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span
+                                    onClick={() => {
+                                      if (!canManageAssignments) {
+                                        showToast('Delivery dates are managed by Dr. Dan Tian or Lab Admin.');
+                                        return;
+                                      }
+                                      setEditingDateCell({
+                                        roundId: r.id,
+                                        memberName: a.memberName,
+                                        field: 'deliver',
+                                        tempVal: a.deliverDate || r.deliverDateText || ''
+                                      });
+                                    }}
+                                    className={`text-[11px] font-mono ${
+                                      canManageAssignments ? 'cursor-pointer hover:underline' : 'cursor-default'
+                                    } ${a.deliverStatus === 'delivered' ? 'text-emerald-700 font-bold' : 'text-slate-600'}`}
+                                    title={canManageAssignments ? "Click to edit delivery date (Admin/Dan)" : "Delivery Date"}
+                                  >
+                                    {a.deliverDate || r.deliverDateText || '-'}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              {r.checkCompleted ? (
-                                <div className="w-5 h-5 rounded-full bg-emerald-600 flex items-center justify-center text-white">
-                                  <Check className="w-3.5 h-3.5 stroke-[3]" />
-                                </div>
-                              ) : (
-                                <div className="w-5 h-5 rounded-full border-2 border-slate-400 bg-white" />
-                              )}
-                              <span className="text-xs font-medium text-slate-600">
-                                {r.checkDateText || '-'}
-                              </span>
+                          ))}
+
+                          {/* Quick round delivery button for Dan / Admin */}
+                          {canManageAssignments && (
+                            <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px]">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleDeliver(r.id)}
+                                className={`font-extrabold px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
+                                  r.deliverCompleted ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                }`}
+                                title="Mark entire round delivery done and auto-select sprint"
+                              >
+                                {r.deliverCompleted ? '✓ Round Delivered' : 'Deliver All'}
+                              </button>
                             </div>
                           )}
                         </td>
 
-                        {/* 7. Backup date */}
-                        <td className="py-4 px-4 border-r border-slate-200 align-top">
-                          <div 
-                            onClick={() => handleToggleBackup(r.id)}
-                            className={`flex items-center gap-2 p-1.5 rounded-lg transition-colors ${
-                              isAdmin ? 'cursor-pointer hover:bg-slate-100/70' : 'cursor-default'
-                            }`}
-                            title={isAdmin ? "Click to toggle backup status (Admin)" : "Backup Date"}
-                          >
-                            <div className="shrink-0">
-                              {r.backupCompleted ? (
-                                <div className="w-5 h-5 rounded-full bg-emerald-600 flex items-center justify-center text-white shadow-xs">
-                                  <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        {/* =========================================================================
+                            5. COLLECT DATE (REQUIREMENT 3)
+                            - Member-wise list with Date + 2 symbols:
+                              ⚪ Empty circle (not yet started)
+                              🟢 Solid green circle (collected)
+                            - Dan/Admin only can toggle status or change date
+                            ========================================================================= */}
+                        <td className="py-4 px-3 border-r border-slate-200 align-top space-y-1.5">
+                          {r.allocations.map((a, aIdx) => (
+                            <div key={aIdx} className="flex items-center justify-between gap-1.5 p-1 rounded hover:bg-slate-100/70 transition-colors">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <div 
+                                  onClick={() => handleToggleMemberCollect(r.id, a.memberName)}
+                                  className={`shrink-0 ${canManageAssignments ? 'cursor-pointer hover:scale-110 active:scale-95' : 'cursor-default'} transition-transform`}
+                                  title={canManageAssignments ? "Click to toggle collect status (Admin/Dan)" : a.collectStatus === 'collected' ? 'Collected' : 'Not yet started'}
+                                >
+                                  {a.collectStatus === 'collected' ? (
+                                    <div className="w-4 h-4 rounded-full bg-emerald-600 border border-emerald-700 flex items-center justify-center text-white shadow-xs">
+                                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                    </div>
+                                  ) : (
+                                    <div className="w-4 h-4 rounded-full border-2 border-slate-400 bg-white hover:border-emerald-600 transition-colors" />
+                                  )}
                                 </div>
-                              ) : (
-                                <div className="w-5 h-5 rounded-full border-2 border-slate-400 bg-white hover:border-emerald-600 transition-colors" />
-                              )}
+                                <span className="text-[11px] font-semibold text-slate-800 truncate">
+                                  {a.memberName.split(' ')[0]}:
+                                </span>
+                              </div>
+
+                              {/* Editable Date for Dan / Admin */}
+                              <div className="shrink-0 text-right">
+                                {editingDateCell?.roundId === r.id && editingDateCell?.memberName === a.memberName && editingDateCell?.field === 'collect' ? (
+                                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                    <input
+                                      type="text"
+                                      autoFocus
+                                      value={editingDateCell.tempVal}
+                                      onChange={(e) => setEditingDateCell({ ...editingDateCell, tempVal: e.target.value })}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          handleUpdateMemberDate(r.id, a.memberName, 'collect', editingDateCell.tempVal);
+                                          setEditingDateCell(null);
+                                        } else if (e.key === 'Escape') {
+                                          setEditingDateCell(null);
+                                        }
+                                      }}
+                                      className="w-18 px-1 py-0.5 text-[10px] font-mono font-bold bg-white border border-blue-400 rounded outline-none shadow-xs"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleUpdateMemberDate(r.id, a.memberName, 'collect', editingDateCell.tempVal);
+                                        setEditingDateCell(null);
+                                      }}
+                                      className="text-emerald-600 hover:text-emerald-700 p-0.5 cursor-pointer"
+                                    >
+                                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span
+                                    onClick={() => {
+                                      if (!canManageAssignments) {
+                                        showToast('Collect dates are managed by Dr. Dan Tian or Lab Admin.');
+                                        return;
+                                      }
+                                      setEditingDateCell({
+                                        roundId: r.id,
+                                        memberName: a.memberName,
+                                        field: 'collect',
+                                        tempVal: a.collectDate || r.collectDateText || ''
+                                      });
+                                    }}
+                                    className={`text-[11px] font-mono ${
+                                      canManageAssignments ? 'cursor-pointer hover:underline' : 'cursor-default'
+                                    } ${a.collectStatus === 'collected' ? 'text-emerald-700 font-bold' : 'text-slate-600'}`}
+                                    title={canManageAssignments ? "Click to edit collect date (Admin/Dan)" : "Collect Date"}
+                                  >
+                                    {a.collectDate || r.collectDateText || '-'}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <span className={`text-xs font-bold ${r.backupCompleted ? 'text-emerald-700' : 'text-slate-500'}`}>
-                              {r.backupDateText || (r.backupCompleted ? '✓ Done' : 'Pending')}
-                            </span>
-                          </div>
+                          ))}
+
+                          {/* Quick round collect toggle */}
+                          {canManageAssignments && (
+                            <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px]">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleCollect(r.id)}
+                                className={`font-extrabold px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
+                                  r.collectCompleted ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                }`}
+                                title="Toggle entire round collection status"
+                              >
+                                {r.collectCompleted ? '✓ Round Collected' : 'Collect All'}
+                              </button>
+                            </div>
+                          )}
+                        </td>
+
+                        {/* =========================================================================
+                            6. CHECK DATE (QC CHECK DATA) — REQUIREMENT 3
+                            - Member-wise list with Date + 5 Symbols:
+                              ⚪ Empty circle (not yet started)
+                              🟠 Orange filled circle (in progress)
+                              🟣 Purple circle (QC checked by Dan)
+                              🔵 Blue filled circle (reprocessing)
+                              🟢 Solid green circle (Dan QC verified)
+                            - Dan/Admin only can edit status, date, or notes
+                            ========================================================================= */}
+                        <td className="py-4 px-3 border-r border-slate-200 align-top space-y-1.5">
+                          {r.allocations.map((a, aIdx) => {
+                            const statusConfig = CHECK_STATUS_CONFIG.find(s => s.key === a.checkStatus) || CHECK_STATUS_CONFIG[0];
+                            const isMenuOpen = checkStatusMenu?.roundId === r.id && checkStatusMenu?.memberName === a.memberName;
+
+                            return (
+                              <div key={aIdx} className="relative group p-1 rounded hover:bg-slate-100/70 transition-colors">
+                                <div className="flex items-center justify-between gap-1.5">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    {/* Status symbol — Click cycles to next status */}
+                                    <div 
+                                      onClick={() => {
+                                        if (canManageAssignments) {
+                                          handleCycleMemberCheckStatus(r.id, a.memberName);
+                                        } else {
+                                          showToast(`Current QC status: ${statusConfig.label}`);
+                                        }
+                                      }}
+                                      className={`shrink-0 ${canManageAssignments ? 'cursor-pointer hover:scale-110 active:scale-95' : 'cursor-default'} transition-transform`}
+                                      title={canManageAssignments ? `${statusConfig.label} — Click to cycle status, or use menu` : statusConfig.label}
+                                    >
+                                      {a.checkStatus === 'verified' ? (
+                                        <div className="w-4 h-4 rounded-full bg-emerald-600 border border-emerald-700 flex items-center justify-center text-white shadow-xs text-[9px] font-black">
+                                          ✓
+                                        </div>
+                                      ) : a.checkStatus === 'qc_checked' ? (
+                                        <div className="w-4 h-4 rounded-full bg-purple-700 border border-purple-800 flex items-center justify-center text-white shadow-xs text-[9px] font-black">
+                                          ✓
+                                        </div>
+                                      ) : a.checkStatus === 'reprocessing' ? (
+                                        <div className="w-4 h-4 rounded-full bg-sky-500 border border-sky-600 shadow-xs" />
+                                      ) : a.checkStatus === 'in_progress' ? (
+                                        <div className="w-4 h-4 rounded-full bg-amber-500 border border-amber-600 shadow-xs" />
+                                      ) : (
+                                        <div className="w-4 h-4 rounded-full border-2 border-slate-400 bg-white hover:border-amber-500 transition-colors" />
+                                      )}
+                                    </div>
+
+                                    <span className="text-[11px] font-semibold text-slate-800 truncate">
+                                      {a.memberName.split(' ')[0]}:
+                                    </span>
+
+                                    {/* Status picker dropdown arrow for Dan / Admin */}
+                                    {canManageAssignments && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setCheckStatusMenu(isMenuOpen ? null : { roundId: r.id, memberName: a.memberName });
+                                        }}
+                                        className="text-slate-400 hover:text-purple-700 p-0.5 rounded cursor-pointer"
+                                        title="Select Dan QC status directly"
+                                      >
+                                        <ChevronDown className="w-2.5 h-2.5" />
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {/* Editable Check Date */}
+                                  <div className="shrink-0 text-right">
+                                    {editingDateCell?.roundId === r.id && editingDateCell?.memberName === a.memberName && editingDateCell?.field === 'check' ? (
+                                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                        <input
+                                          type="text"
+                                          autoFocus
+                                          value={editingDateCell.tempVal}
+                                          onChange={(e) => setEditingDateCell({ ...editingDateCell, tempVal: e.target.value })}
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                              handleUpdateMemberDate(r.id, a.memberName, 'check', editingDateCell.tempVal);
+                                              setEditingDateCell(null);
+                                            } else if (e.key === 'Escape') {
+                                              setEditingDateCell(null);
+                                            }
+                                          }}
+                                          className="w-18 px-1 py-0.5 text-[10px] font-mono font-bold bg-white border border-blue-400 rounded outline-none shadow-xs"
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            handleUpdateMemberDate(r.id, a.memberName, 'check', editingDateCell.tempVal);
+                                            setEditingDateCell(null);
+                                          }}
+                                          className="text-emerald-600 hover:text-emerald-700 p-0.5 cursor-pointer"
+                                        >
+                                          <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <span
+                                        onClick={() => {
+                                          if (!canManageAssignments) {
+                                            showToast('QC check dates are managed by Dr. Dan Tian or Lab Admin.');
+                                            return;
+                                          }
+                                          setEditingDateCell({
+                                            roundId: r.id,
+                                            memberName: a.memberName,
+                                            field: 'check',
+                                            tempVal: a.checkDate || r.checkDateText || ''
+                                          });
+                                        }}
+                                        className={`text-[11px] font-mono ${
+                                          canManageAssignments ? 'cursor-pointer hover:underline' : 'cursor-default'
+                                        } ${a.checkStatus === 'verified' ? 'text-emerald-700 font-bold' : 'text-slate-600'}`}
+                                        title={canManageAssignments ? "Click to edit check date (Admin/Dan)" : "Check Date"}
+                                      >
+                                        {a.checkDate || r.checkDateText || '-'}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Optional QA note */}
+                                {a.checkNotes && (
+                                  <div className="pl-5 text-[10px] text-slate-500 italic truncate" title={a.checkNotes}>
+                                    {a.checkNotes}
+                                  </div>
+                                )}
+
+                                {/* Floating popover for Dan / Admin to select exact QC status */}
+                                {isMenuOpen && (
+                                  <div 
+                                    className="absolute left-0 top-full z-40 mt-1 bg-white rounded-xl shadow-2xl border border-slate-200 p-2 space-y-1 min-w-[210px] animate-in fade-in zoom-in-95"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <div className="text-[10px] font-black text-slate-400 px-2 py-0.5 uppercase tracking-wider">
+                                      Select QC Status ({a.memberName}):
+                                    </div>
+                                    {CHECK_STATUS_CONFIG.map(s => (
+                                      <button
+                                        key={s.key}
+                                        type="button"
+                                        onClick={() => {
+                                          handleSetMemberCheckStatus(r.id, a.memberName, s.key);
+                                          setCheckStatusMenu(null);
+                                        }}
+                                        className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-left transition-colors cursor-pointer ${
+                                          a.checkStatus === s.key ? 'bg-slate-100 text-slate-900 ring-1 ring-slate-300' : 'hover:bg-slate-50 text-slate-700'
+                                        }`}
+                                      >
+                                        <span className={`w-3.5 h-3.5 rounded-full ${s.circleClass} shrink-0`}>
+                                          {s.key === 'verified' || s.key === 'qc_checked' ? '✓' : ''}
+                                        </span>
+                                        <span>{s.label}</span>
+                                        {a.checkStatus === s.key && <Check className="w-3.5 h-3.5 ml-auto text-emerald-600" />}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </td>
+
+                        {/* =========================================================================
+                            7. BACKUP DATE (REQUIREMENT 3)
+                            - Member-wise list with Date + 2 symbols:
+                              ⚪ Empty circle (not yet started)
+                              🟢 Solid green circle (backed up)
+                            - Dan/Admin only can toggle status or change date
+                            ========================================================================= */}
+                        <td className="py-4 px-3 border-r border-slate-200 align-top space-y-1.5">
+                          {r.allocations.map((a, aIdx) => (
+                            <div key={aIdx} className="flex items-center justify-between gap-1.5 p-1 rounded hover:bg-slate-100/70 transition-colors">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <div 
+                                  onClick={() => handleToggleMemberBackup(r.id, a.memberName)}
+                                  className={`shrink-0 ${canManageAssignments ? 'cursor-pointer hover:scale-110 active:scale-95' : 'cursor-default'} transition-transform`}
+                                  title={canManageAssignments ? "Click to toggle backup status (Admin/Dan)" : a.backupStatus === 'backed_up' ? 'Backed Up' : 'Pending'}
+                                >
+                                  {a.backupStatus === 'backed_up' ? (
+                                    <div className="w-4 h-4 rounded-full bg-emerald-600 border border-emerald-700 flex items-center justify-center text-white shadow-xs">
+                                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                    </div>
+                                  ) : (
+                                    <div className="w-4 h-4 rounded-full border-2 border-slate-400 bg-white hover:border-emerald-600 transition-colors" />
+                                  )}
+                                </div>
+                                <span className="text-[11px] font-semibold text-slate-800 truncate">
+                                  {a.memberName.split(' ')[0]}:
+                                </span>
+                              </div>
+
+                              {/* Editable Date for Dan / Admin */}
+                              <div className="shrink-0 text-right">
+                                {editingDateCell?.roundId === r.id && editingDateCell?.memberName === a.memberName && editingDateCell?.field === 'backup' ? (
+                                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                    <input
+                                      type="text"
+                                      autoFocus
+                                      value={editingDateCell.tempVal}
+                                      onChange={(e) => setEditingDateCell({ ...editingDateCell, tempVal: e.target.value })}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          handleUpdateMemberDate(r.id, a.memberName, 'backup', editingDateCell.tempVal);
+                                          setEditingDateCell(null);
+                                        } else if (e.key === 'Escape') {
+                                          setEditingDateCell(null);
+                                        }
+                                      }}
+                                      className="w-18 px-1 py-0.5 text-[10px] font-mono font-bold bg-white border border-blue-400 rounded outline-none shadow-xs"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleUpdateMemberDate(r.id, a.memberName, 'backup', editingDateCell.tempVal);
+                                        setEditingDateCell(null);
+                                      }}
+                                      className="text-emerald-600 hover:text-emerald-700 p-0.5 cursor-pointer"
+                                    >
+                                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span
+                                    onClick={() => {
+                                      if (!canManageAssignments) {
+                                        showToast('Backup dates are managed by Dr. Dan Tian or Lab Admin.');
+                                        return;
+                                      }
+                                      setEditingDateCell({
+                                        roundId: r.id,
+                                        memberName: a.memberName,
+                                        field: 'backup',
+                                        tempVal: a.backupDate || r.backupDateText || 'Pending'
+                                      });
+                                    }}
+                                    className={`text-[11px] font-mono ${
+                                      canManageAssignments ? 'cursor-pointer hover:underline' : 'cursor-default'
+                                    } ${a.backupStatus === 'backed_up' ? 'text-emerald-700 font-bold' : 'text-slate-500'}`}
+                                    title={canManageAssignments ? "Click to edit backup date (Admin/Dan)" : "Backup Date"}
+                                  >
+                                    {a.backupDate || r.backupDateText || (a.backupStatus === 'backed_up' ? '✓ Done' : 'Pending')}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+
+                          {/* Quick round backup toggle */}
+                          {canManageAssignments && (
+                            <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px]">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleBackup(r.id)}
+                                className={`font-extrabold px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
+                                  r.backupCompleted ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                }`}
+                                title="Toggle entire round backup status"
+                              >
+                                {r.backupCompleted ? '✓ Round Backed Up' : 'Backup All'}
+                              </button>
+                            </div>
+                          )}
                         </td>
 
                         {/* 8. Admin Edit */}
@@ -1854,7 +2600,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               {/* Grand Total Footer */}
               <tfoot>
                 <tr className="bg-slate-900 text-white font-extrabold border-t-2 border-[#9E1B32] text-xs">
-                  <td className="py-4 px-4 text-center font-black text-cyan-400">
+                  <td className="py-4 px-3 text-center font-black text-cyan-400">
                     TOTAL
                   </td>
                   <td className="py-4 px-4">
@@ -1899,7 +2645,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
             <div className="flex items-center gap-1.5">
               <Info className="w-4 h-4 text-slate-400" />
               <span>
-                ERSL Protocol Matrix: Member completed samples require Dr. Dan Tian Quality Sign-off to be 100% verified.
+                ERSL Protocol Matrix: Workload progress is updated by members. Delivery, collection, check, and backup statuses are signed off by Dr. Dan Tian or Lab Admin.
               </span>
             </div>
             <div className="font-semibold text-slate-700">
@@ -1917,7 +2663,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               Team Member Workload Matrix Grid
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Click any cell to edit completed samples and progress.
+              Click any cell to edit completed samples and progress numbers.
             </p>
           </div>
 
@@ -1927,7 +2673,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                 <tr className="bg-slate-100 text-slate-800 text-xs font-black border-b border-slate-200">
                   <th className="py-3 px-4 w-20">Round</th>
                   <th className="py-3 px-4">Basin</th>
-                  {['Saravanan', 'Jihee', 'Tantu', 'Anindya', 'Dan'].map(m => (
+                  {matrixMemberNames.map(m => (
                     <th key={m} className="py-3 px-4 border-l border-slate-200 min-w-[140px]">
                       {m}
                     </th>
@@ -1947,7 +2693,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                       <div className="text-[11px] text-slate-500">{r.subBasins[0]}</div>
                     </td>
 
-                    {['Saravanan', 'Jihee', 'Tantu', 'Anindya', 'Dan'].map(name => {
+                    {matrixMemberNames.map(name => {
                       const alloc = r.allocations.find(a => a.memberName.toLowerCase().includes(name.toLowerCase()));
                       if (!alloc) {
                         return (
@@ -1957,7 +2703,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                         );
                       }
 
-                      const isDanVerified = alloc.danVerified;
+                      const isVerified = alloc.checkStatus === 'verified' || alloc.danVerified;
                       const isSamplesDone = alloc.completed || (alloc.numericCount > 0 && alloc.finishedCount >= alloc.numericCount);
 
                       return (
@@ -1965,24 +2711,32 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                           key={name}
                           onClick={() => handleOpenSampleModal(r, alloc)}
                           className={`py-3.5 px-4 border-l border-slate-200 cursor-pointer transition-colors ${
-                            isDanVerified ? 'bg-emerald-50/40 hover:bg-emerald-50' : isSamplesDone ? 'bg-purple-50/40 hover:bg-purple-50' : 'hover:bg-slate-100/50'
+                            isVerified ? 'bg-emerald-50/40 hover:bg-emerald-50' : isSamplesDone ? 'bg-purple-50/40 hover:bg-purple-50' : 'hover:bg-slate-100/50'
                           }`}
                         >
                           <div className="flex items-center gap-2">
-                            {isDanVerified ? (
-                              <div className="w-4 h-4 rounded-full bg-emerald-600 flex items-center justify-center text-white text-[10px]">
-                                <CheckCheck className="w-3 h-3 stroke-[3]" />
-                              </div>
-                            ) : isSamplesDone ? (
-                              <div className="w-4 h-4 rounded-full bg-purple-700 flex items-center justify-center text-white text-[10px]">
+                            {isVerified ? (
+                              <div className="w-4 h-4 rounded-full bg-emerald-600 flex items-center justify-center text-white text-[10px] shrink-0">
                                 <Check className="w-3 h-3 stroke-[3]" />
                               </div>
+                            ) : alloc.checkStatus === 'qc_checked' ? (
+                              <div className="w-4 h-4 rounded-full bg-purple-700 flex items-center justify-center text-white text-[10px] shrink-0">
+                                <Check className="w-3 h-3 stroke-[3]" />
+                              </div>
+                            ) : alloc.checkStatus === 'reprocessing' ? (
+                              <div className="w-4 h-4 rounded-full bg-sky-500 shrink-0" />
+                            ) : alloc.checkStatus === 'in_progress' ? (
+                              <div className="w-4 h-4 rounded-full bg-amber-500 shrink-0" />
                             ) : (
-                              <div className="w-4 h-4 rounded-full border border-slate-400 bg-white" />
+                              <div className="w-4 h-4 rounded-full border border-slate-300 bg-white shrink-0" />
                             )}
-                            <div className="font-mono text-xs">
-                              <span className="font-bold text-slate-900">{alloc.finishedCount}</span>
-                              <span className="text-slate-400">/{alloc.countText}</span>
+                            <div>
+                              <div className="font-mono font-bold text-slate-900">
+                                {alloc.finishedCount} / {alloc.countText}
+                              </div>
+                              <div className="text-[10px] text-slate-400">
+                                {isVerified ? 'Verified' : isSamplesDone ? 'Ready for Dan' : 'Working'}
+                              </div>
                             </div>
                           </div>
                         </td>
@@ -2001,22 +2755,145 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       )}
 
       {/* =========================================================================
-          MODAL: MEMBER SAMPLE & PROCESS COMPLETION (Accessible in Member & Admin Mode)
+          MODAL: ADD MEMBER TO ROUND (REQUIREMENT 1 - DAN / ADMIN ONLY)
+          ========================================================================= */}
+      {addMemberModal && addMemberModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-slate-900 p-5 text-white flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-[#9E1B32]">
+                  Workload Assignment · Round {addMemberModal.roundNum}
+                </span>
+                <h3 className="text-base font-extrabold text-white">
+                  Assign Member to this Week
+                </h3>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setAddMemberModal(null)}
+                className="text-white/80 hover:text-white p-1 rounded-full transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmAddMember} className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Select Lab Researcher:
+                </label>
+                <select
+                  value={newMemberForm.memberName}
+                  onChange={(e) => setNewMemberForm({ ...newMemberForm, memberName: e.target.value })}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800"
+                >
+                  <option value="Saravanan Raju">Saravanan Raju</option>
+                  <option value="Jihee Seo">Jihee Seo</option>
+                  <option value="Tantu Mandal">Tantu Mandal</option>
+                  <option value="Anindya Palaparthi">Anindya Palaparthi</option>
+                  <option value="Dr. Dan Tian">Dr. Dan Tian</option>
+                  <option value="Ms. Yuliia Miliutina">Ms. Yuliia Miliutina</option>
+                  <option value="Dr. Hongxing Liu">Dr. Hongxing Liu</option>
+                  <option value="Other">Other / Custom Name...</option>
+                </select>
+              </div>
+
+              {newMemberForm.memberName === 'Other' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Custom Researcher Name:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newMemberForm.customName}
+                    onChange={(e) => setNewMemberForm({ ...newMemberForm, customName: e.target.value })}
+                    placeholder="Enter researcher name"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Assigned Reservoirs Workload Target:
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newMemberForm.workloadCount}
+                  onChange={(e) => setNewMemberForm({ ...newMemberForm, workloadCount: e.target.value })}
+                  placeholder="e.g. 20, 35 (small), 40"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-800"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Delivery Date:
+                  </label>
+                  <input
+                    type="text"
+                    value={newMemberForm.deliverDate}
+                    onChange={(e) => setNewMemberForm({ ...newMemberForm, deliverDate: e.target.value })}
+                    placeholder="e.g. 10/7 Wed"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Collect Date:
+                  </label>
+                  <input
+                    type="text"
+                    value={newMemberForm.collectDate}
+                    onChange={(e) => setNewMemberForm({ ...newMemberForm, collectDate: e.target.value })}
+                    placeholder="e.g. 10/19 Mon"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setAddMemberModal(null)}
+                  className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-lg bg-[#9E1B32] hover:bg-red-800 text-white text-xs font-bold shadow-md cursor-pointer flex items-center gap-1.5"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Assign to Round</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL: MEMBER WORK PROGRESS & WORKLOAD SAMPLES (REQUIREMENT 1)
+          - Regular members can ONLY edit finishedCount (progress number).
+          - Dan / Admin can also adjust workload target (numericCount / countText).
           ========================================================================= */}
       {sampleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="bg-gradient-to-r from-slate-900 to-[#9E1B32] p-5 text-white flex items-center justify-between">
+            <div className="bg-slate-900 p-5 text-white flex items-center justify-between">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-cyan-300">
-                  Member Sample Progress & QC
+                <span className="text-[10px] font-black uppercase tracking-wider text-[#9E1B32]">
+                  {canManageAssignments ? 'Workload & Progress Editor' : 'Member Work Progress'}
                 </span>
                 <h3 className="text-base font-extrabold text-white">
-                  Round {sampleModal.roundNum} — {sampleModal.memberName}
+                  {sampleModal.memberName} — Round {sampleModal.roundNum}
                 </h3>
-                <p className="text-xs text-slate-200 mt-0.5">
-                  {sampleModal.basinName}
-                </p>
               </div>
               <button 
                 type="button"
@@ -2028,180 +2905,117 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
             </div>
 
             <form onSubmit={handleSaveSampleModal} className="p-6 space-y-4 text-xs">
-              
-              {/* Quick increment buttons */}
-              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
-                <label className="block text-xs font-bold text-slate-700">
-                  Quick Add Completed Samples:
-                </label>
-                <div className="flex items-center gap-2">
-                  {[5, 10, 20].map(inc => (
-                    <button
-                      key={inc}
-                      type="button"
-                      onClick={() => setSampleModal(prev => prev ? {
-                        ...prev,
-                        finishedCount: Math.min(prev.numericCount, prev.finishedCount + inc)
-                      } : null)}
-                      className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 hover:border-[#9E1B32] hover:text-[#9E1B32] font-bold text-xs transition-all shadow-2xs cursor-pointer"
-                    >
-                      +{inc}
-                    </button>
-                  ))}
-
-                  <button
-                    type="button"
-                    onClick={() => setSampleModal(prev => prev ? {
-                      ...prev,
-                      finishedCount: prev.numericCount,
-                      completed: true
-                    } : null)}
-                    className="ml-auto px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 font-bold text-xs transition-all cursor-pointer"
-                  >
-                    100% Done
-                  </button>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-semibold">Basin Target:</span>
+                  <span className="font-extrabold text-slate-900">{sampleModal.basinName}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-semibold">Researcher:</span>
+                  <span className="font-bold text-slate-800">{sampleModal.memberName}</span>
                 </div>
               </div>
 
-              {/* Finished Count Input & Target */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Workload Target: Editable by Dan / Admin only */}
+              {canManageAssignments ? (
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Samples Completed:
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={sampleModal.finishedCount}
-                    onChange={(e) => setSampleModal({ ...sampleModal, finishedCount: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#9E1B32]/30 focus:border-[#9E1B32]"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">Number completed so far</p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Target Assigned:
-                  </label>
-                  <input
-                    type="number"
-                    readOnly={!isAdmin}
-                    value={sampleModal.numericCount}
-                    onChange={(e) => {
-                      if (isAdmin) {
-                        setSampleModal({ ...sampleModal, numericCount: parseInt(e.target.value) || 0 });
-                      }
-                    }}
-                    className={`w-full px-3 py-2 rounded-lg text-sm font-bold border ${
-                      isAdmin 
-                        ? 'bg-white border-slate-300 text-slate-900' 
-                        : 'bg-slate-100 border-slate-200 text-slate-600 cursor-not-allowed'
-                    }`}
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    {isAdmin ? 'Editable by Admin' : 'Allocated Target'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Member Process Completion Toggle */}
-              <div className="bg-purple-50 p-3.5 rounded-xl border border-purple-200 flex items-center justify-between">
-                <div>
-                  <span className="font-bold text-purple-950 block">Mark Samples Finished (Member)</span>
-                  <span className="text-[10px] text-purple-700">Submits polygon delineation to Dr. Dan Tian for QA check</span>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={sampleModal.completed || sampleModal.finishedCount >= sampleModal.numericCount}
-                  onChange={(e) => setSampleModal({
-                    ...sampleModal,
-                    completed: e.target.checked,
-                    finishedCount: e.target.checked && sampleModal.finishedCount < sampleModal.numericCount ? sampleModal.numericCount : sampleModal.finishedCount
-                  })}
-                  className="w-5 h-5 text-purple-700 rounded border-slate-300 focus:ring-purple-600 cursor-pointer"
-                />
-              </div>
-
-              {/* Dr. Dan Tian Quality Certification Box */}
-              <div className={`p-3.5 rounded-xl border flex items-center justify-between ${
-                sampleModal.danVerified 
-                  ? 'bg-emerald-50 border-emerald-300' 
-                  : canVerifyQuality 
-                    ? 'bg-amber-50 border-amber-300' 
-                    : 'bg-slate-50 border-slate-200'
-              }`}>
-                <div className="flex items-center gap-2.5">
-                  <ShieldCheck className={`w-5 h-5 ${sampleModal.danVerified ? 'text-emerald-600' : 'text-slate-400'}`} />
-                  <div>
-                    <span className="font-bold text-slate-900 block text-xs">
-                      Dr. Dan Tian Quality Check Sign-off
-                    </span>
-                    <span className="text-[10px] text-slate-500">
-                      {sampleModal.danVerified 
-                        ? 'Certified: Delineated polygons verified accurate' 
-                        : canVerifyQuality 
-                          ? 'Review completed polygons and certify quality' 
-                          : 'Awaiting Dr. Dan Tian QA review'}
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Assigned Workload Target:
+                    </label>
+                    <span className="text-[10px] font-extrabold text-[#9E1B32] uppercase bg-red-50 px-1.5 py-0.2 rounded">
+                      Admin / Dan Edit
                     </span>
                   </div>
+                  <input
+                    type="text"
+                    required
+                    value={sampleModal.countText}
+                    onChange={(e) => setSampleModal({ ...sampleModal, countText: e.target.value })}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-800"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Dan or Admin can update assigned workload for this week.
+                  </p>
                 </div>
+              ) : (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+                  <span className="text-slate-600 font-bold">Assigned Workload Target:</span>
+                  <span className="font-mono font-black text-slate-900 text-sm">{sampleModal.countText} reservoirs</span>
+                </div>
+              )}
 
-                {canVerifyQuality ? (
-                  <label className="flex items-center gap-1.5 cursor-pointer font-bold text-emerald-800 text-xs">
-                    <input
-                      type="checkbox"
-                      checked={sampleModal.danVerified}
-                      onChange={(e) => setSampleModal({ ...sampleModal, danVerified: e.target.checked })}
-                      className="w-5 h-5 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
-                    />
-                    <span>Verified</span>
-                  </label>
-                ) : (
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                    sampleModal.danVerified ? 'bg-emerald-200 text-emerald-900' : 'bg-slate-200 text-slate-600'
-                  }`}>
-                    {sampleModal.danVerified ? 'Verified' : 'Pending'}
-                  </span>
-                )}
-              </div>
-
-              {/* Progress Notes */}
+              {/* Work Progress Number (Editable by Member) */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Progress Notes / Methodology (Optional):
+                  Completed Work Progress Number (Finished Samples):
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  required
+                  value={sampleModal.finishedCount}
+                  onChange={(e) => setSampleModal({ ...sampleModal, finishedCount: parseInt(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono font-black text-[#9E1B32] text-sm"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Enter your current number of completed reservoirs. Progress automatically updates across lab metrics.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Notes / Polygon Comments (Optional):
                 </label>
                 <textarea
                   rows={2}
-                  value={sampleModal.notes}
+                  value={sampleModal.notes || ''}
                   onChange={(e) => setSampleModal({ ...sampleModal, notes: e.target.value })}
-                  placeholder="e.g. Verified Sentinel-2 optical lake masks..."
+                  placeholder="e.g. SAR delineation check, high precision polygons..."
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setSampleModal(null)}
-                  className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-lg bg-[#9E1B32] hover:bg-red-800 text-white text-xs font-bold shadow-md cursor-pointer"
-                >
-                  Save Progress
-                </button>
-              </div>
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                {canManageAssignments ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm(`Remove ${sampleModal.memberName} from Round ${sampleModal.roundNum}?`)) {
+                        handleRemoveMemberFromRound(sampleModal.roundId, sampleModal.memberName);
+                        setSampleModal(null);
+                      }
+                    }}
+                    className="text-red-600 hover:text-red-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Remove Member</span>
+                  </button>
+                ) : <div />}
 
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSampleModal(null)}
+                    className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-lg bg-[#9E1B32] hover:bg-red-800 text-white text-xs font-bold shadow-md cursor-pointer"
+                  >
+                    Save Progress
+                  </button>
+                </div>
+              </div>
             </form>
           </div>
         </div>
       )}
 
       {/* =========================================================================
-          MODAL: EDIT ROUND DETAILS (ADMIN MODE - FULL EDIT FOR ALL SECTIONS)
+          MODAL: EDIT ROUND DETAILS (ADMIN MODE - FULL EDIT)
           ========================================================================= */}
       {isEditModalOpen && editingRound && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -2314,19 +3128,6 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                           className="w-20 px-2 py-1 bg-white border border-slate-300 rounded text-xs font-mono font-bold"
                         />
                       </div>
-                      <label className="flex items-center gap-1 text-[11px] text-emerald-800 font-bold cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={a.danVerified}
-                          onChange={(e) => {
-                            const nextAlloc = [...editingRound.allocations];
-                            nextAlloc[idx] = { ...a, danVerified: e.target.checked };
-                            setEditingRound({ ...editingRound, allocations: nextAlloc });
-                          }}
-                          className="rounded text-emerald-600"
-                        />
-                        <span>Dan QC</span>
-                      </label>
                     </div>
                   ))}
                 </div>
@@ -2335,7 +3136,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Deliver Date:
+                    Delivery Date:
                   </label>
                   <input
                     type="text"
@@ -2516,7 +3317,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Deliver Date:
+                    Delivery Date:
                   </label>
                   <input
                     type="text"
