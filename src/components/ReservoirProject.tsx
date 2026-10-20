@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { User } from '../types';
 import { initialPeople } from '../data/initialData';
-import { ADMIN_EMAILS } from '../lib/supabase';
+import { ADMIN_EMAILS, supabase } from '../lib/supabase';
 import { 
   Waves, 
   Calendar, 
@@ -41,7 +41,10 @@ import {
   Sliders,
   CheckCheck,
   Hourglass,
-  RotateCcw
+  RotateCcw,
+  Cloud,
+  CloudCheck,
+  Radio
 } from 'lucide-react';
 
 export type DeliveryStatus = 'not_started' | 'delivered';
@@ -570,6 +573,10 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     });
   };
 
+  // Cloud Sync & Realtime Status
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<'synced' | 'local_only' | 'table_needed'>('local_only');
+  const [realtimeActive, setRealtimeActive] = useState(false);
+
   // Load round data from localStorage (persisted across edits)
   const [rounds, setRounds] = useState<RoundRow[]>(() => {
     try {
@@ -587,41 +594,292 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     return getInitialRoundData();
   });
 
-  // Save changes to localStorage
-  useEffect(() => {
+  // Persistent reference to rounds state for callbacks
+  const roundsRef = useRef<RoundRow[]>(rounds);
+  roundsRef.current = rounds;
+
+  // Supabase Realtime Channel Reference
+  const channelRef = useRef<any>(null);
+
+  // Explicit Active Delivery Round (synced across members & admin)
+  const [explicitActiveDeliveryRound, setExplicitActiveDeliveryRound] = useState<number | null>(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(rounds));
-    } catch (e) {
-      console.error('Failed to persist reservoir round data', e);
+      const saved = localStorage.getItem(STORAGE_KEY + '_active_round');
+      return saved ? parseInt(saved, 10) : null;
+    } catch {
+      return null;
     }
-  }, [rounds]);
+  });
+  const explicitActiveRoundRef = useRef<number | null>(explicitActiveDeliveryRound);
+  explicitActiveRoundRef.current = explicitActiveDeliveryRound;
 
   // =========================================================================
-  // REQUIREMENT 4: AUTOMATIC UPDATION BASED ON DELIVERY DATE
+  // CLOUD PERSISTENCE & REALTIME BROADCAST SYNCHRONIZATION
+  // 1. Loads from Supabase database `reservoir_matrix` if table exists.
+  // 2. Broadcasts live via Supabase Realtime using channelRef so ALL open tabs across
+  //    members & admin update immediately in real-time.
+  // 3. Responds to state requests so newly opened admin tabs receive latest progress.
+  // 4. Polls periodically and on window focus to stay completely synchronized.
+  // =========================================================================
+  const fetchCloudData = async () => {
+    if (!supabase) return;
+    try {
+      const { data, error } = await supabase
+        .from('reservoir_matrix')
+        .select('*')
+        .eq('id', 'ersl_reservoir_matrix')
+        .maybeSingle();
+
+      if (!error && data && data.rounds && Array.isArray(data.rounds)) {
+        const sanitized = sanitizeRounds(data.rounds);
+        setRounds(sanitized);
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+        } catch {}
+        if (data.active_round) {
+          setExplicitActiveDeliveryRound(Number(data.active_round));
+          try {
+            localStorage.setItem(STORAGE_KEY + '_active_round', String(data.active_round));
+          } catch {}
+        }
+        setCloudSyncStatus('synced');
+      } else if (error && (error.code === 'PGRST205' || error.message?.includes('schema cache'))) {
+        setCloudSyncStatus('table_needed');
+      }
+    } catch (err) {
+      console.warn('Cloud fetch notice:', err);
+    }
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    // Initial load
+    fetchCloudData();
+
+    // Setup Supabase Realtime Channel
+    if (supabase) {
+      const channel = supabase.channel('ersl_reservoir_realtime', {
+        config: { broadcast: { self: true, ack: true } }
+      });
+      channelRef.current = channel;
+
+      channel
+        .on('broadcast', { event: 'reservoir_matrix_sync' }, (payload: any) => {
+          const incomingRounds = payload?.payload?.rounds;
+          if (incomingRounds && Array.isArray(incomingRounds)) {
+            const sanitized = sanitizeRounds(incomingRounds);
+            if (isMounted) {
+              setRounds(sanitized);
+              try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+              } catch {}
+              if (payload?.payload?.activeRound) {
+                const act = Number(payload.payload.activeRound);
+                setExplicitActiveDeliveryRound(act);
+                try {
+                  localStorage.setItem(STORAGE_KEY + '_active_round', String(act));
+                } catch {}
+              }
+              const sender = payload?.payload?.sender || 'team member';
+              showToast(`⚡ Live update synced from ${sender}!`);
+            }
+          }
+        })
+        .on('broadcast', { event: 'request_state' }, () => {
+          // If we have state, send our latest state to help incoming peer synchronize
+          if (channelRef.current && roundsRef.current && roundsRef.current.length > 0) {
+            channelRef.current.send({
+              type: 'broadcast',
+              event: 'reservoir_matrix_sync',
+              payload: {
+                rounds: roundsRef.current,
+                activeRound: explicitActiveRoundRef.current,
+                sender: currentUser?.name || 'Lab Node',
+                timestamp: Date.now()
+              }
+            }).catch(() => {});
+          }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'reservoir_matrix' }, (payload: any) => {
+          if (payload?.new?.rounds && Array.isArray(payload.new.rounds)) {
+            const incoming = sanitizeRounds(payload.new.rounds);
+            if (isMounted) {
+              setRounds(incoming);
+              try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(incoming));
+              } catch {}
+              if (payload.new.active_round) {
+                setExplicitActiveDeliveryRound(Number(payload.new.active_round));
+              }
+              setCloudSyncStatus('synced');
+              showToast('⚡ Live cloud database update synced!');
+            }
+          }
+        })
+        .subscribe((status) => {
+          if (isMounted) {
+            const isSub = status === 'SUBSCRIBED';
+            setRealtimeActive(isSub);
+            if (isSub) {
+              // Ask active peers for any in-flight state
+              channel.send({
+                type: 'broadcast',
+                event: 'request_state',
+                payload: { requester: currentUser?.name || 'Lab Member' }
+              }).catch(() => {});
+            }
+          }
+        });
+
+      // Background periodic polling & window focus synchronization
+      const pollTimer = setInterval(() => {
+        if (isMounted) fetchCloudData();
+      }, 8000);
+
+      const handleWindowFocus = () => {
+        if (isMounted) {
+          fetchCloudData();
+          if (channelRef.current) {
+            channelRef.current.send({
+              type: 'broadcast',
+              event: 'request_state',
+              payload: { requester: currentUser?.name || 'Lab Member' }
+            }).catch(() => {});
+          }
+        }
+      };
+
+      window.addEventListener('focus', handleWindowFocus);
+
+      return () => {
+        isMounted = false;
+        clearInterval(pollTimer);
+        window.removeEventListener('focus', handleWindowFocus);
+        if (channelRef.current) {
+          supabase.removeChannel(channelRef.current);
+          channelRef.current = null;
+        }
+      };
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Central synchronized update function
+  const updateRoundsAndSync = (
+    updater: (prev: RoundRow[]) => RoundRow[],
+    newActiveRound?: number
+  ) => {
+    setRounds(prev => {
+      const nextRounds = updater(prev);
+      const targetActiveRound = newActiveRound ?? explicitActiveRoundRef.current ?? autoDetectedActiveRound;
+
+      // 1. Local storage backup
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextRounds));
+        if (targetActiveRound) {
+          localStorage.setItem(STORAGE_KEY + '_active_round', String(targetActiveRound));
+        }
+      } catch (err) {
+        console.warn('LocalStorage save error:', err);
+      }
+
+      // 2. Realtime WebSocket Broadcast (Uses active channelRef)
+      if (channelRef.current) {
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'reservoir_matrix_sync',
+          payload: {
+            rounds: nextRounds,
+            activeRound: targetActiveRound,
+            sender: currentUser?.name || currentUser?.email || 'Lab Researcher',
+            timestamp: Date.now()
+          }
+        }).catch((err: any) => {
+          console.warn('Realtime broadcast notice:', err);
+        });
+      }
+
+      // 3. Supabase Cloud Database Table Persistence
+      if (supabase) {
+        supabase
+          .from('reservoir_matrix')
+          .upsert({
+            id: 'ersl_reservoir_matrix',
+            rounds: nextRounds,
+            active_round: targetActiveRound,
+            updated_at: new Date().toISOString(),
+            updated_by: currentUser?.name || currentUser?.email || 'Lab Researcher'
+          })
+          .then(
+            ({ error }: any) => {
+              if (!error) {
+                setCloudSyncStatus('synced');
+              } else if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
+                setCloudSyncStatus('table_needed');
+              }
+            },
+            (err: any) => {
+              console.warn('Supabase upsert error:', err);
+            }
+          );
+      }
+
+      return nextRounds;
+    });
+  };
+
+  // =========================================================================
+  // REQUIREMENT 4: AUTOMATIC UPDATION COMPLETELY BASED ON DELIVERY DATE
   // Automatically detects the active sprint round based on Delivery Date.
-  // When a round is delivered and made green by Dan or Admin,
-  // it locks to that round, auto-selects Dual View (Combined: Overall + Round Progress).
+  // 1. Uses explicit delivery round if Dan/Admin marked delivery green or set active.
+  // 2. Uses the highest round marked delivered (green circle in Delivery Date).
+  // 3. Parses delivery calendar date (M/D) to auto-detect current active delivery sprint.
   // =========================================================================
   const autoDetectedActiveRound = useMemo(() => {
-    // Find the round that has been delivered (green) but whose quality check is not yet 100% verified
-    const activeDeliveredRound = rounds.find(r => {
-      const isDelivered = r.deliverCompleted || r.allocations.some(a => a.deliverStatus === 'delivered');
-      const isRoundDone = r.allocations.length > 0 && r.allocations.every(a => a.checkStatus === 'verified' || a.danVerified);
-      return isDelivered && !isRoundDone;
+    // 1. If explicit delivery round is set, use it
+    if (explicitActiveDeliveryRound !== null) {
+      const exists = rounds.some(r => Number(r.round) === explicitActiveDeliveryRound);
+      if (exists) return explicitActiveDeliveryRound;
+    }
+
+    // 2. Find all rounds that have delivery completed or members delivered (marked green)
+    const deliveredRounds = rounds.filter(r => 
+      r.deliverCompleted || (r.allocations.length > 0 && r.allocations.some(a => a.deliverStatus === 'delivered'))
+    );
+
+    if (deliveredRounds.length > 0) {
+      // The current active sprint is the latest round delivered
+      const latestDelivered = deliveredRounds[deliveredRounds.length - 1];
+      return Number(latestDelivered.round);
+    }
+
+    // 3. Fallback: Parse calendar delivery dates and find matching date on/before today
+    const parseDeliveryDate = (dateStr?: string) => {
+      if (!dateStr) return null;
+      const match = dateStr.match(/(\d{1,2})\/(\d{1,2})/);
+      if (!match) return null;
+      const month = parseInt(match[1], 10);
+      const day = parseInt(match[2], 10);
+      const year = 2026;
+      return new Date(year, month - 1, day);
+    };
+
+    const now = new Date();
+    const pastOrPresent = rounds.filter(r => {
+      const d = parseDeliveryDate(r.deliverDateText);
+      return d && d <= now;
     });
 
-    if (activeDeliveredRound) {
-      return Number(activeDeliveredRound.round);
+    if (pastOrPresent.length > 0) {
+      return Number(pastOrPresent[pastOrPresent.length - 1].round);
     }
 
-    // Next scheduled round if all currently delivered rounds are finished
-    const nextScheduled = rounds.find(r => !r.deliverCompleted && r.allocations.every(a => a.deliverStatus !== 'delivered'));
-    if (nextScheduled) {
-      return Number(nextScheduled.round);
-    }
-
-    return Number(rounds[rounds.length - 1]?.round || 1);
-  }, [rounds]);
+    return Number(rounds[0]?.round || 1);
+  }, [rounds, explicitActiveDeliveryRound]);
 
   // Optional manual round override (null = auto-advancement is active)
   const [manualRoundOverride, setManualRoundOverride] = useState<number | null>(null);
@@ -828,7 +1086,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     const isNewlyCompleted = 
       sampleModal.finishedCount >= sampleModal.numericCount && sampleModal.numericCount > 0;
 
-    setRounds(prev => prev.map(r => {
+    updateRoundsAndSync(prev => prev.map(r => {
       if (r.id !== sampleModal.roundId) return r;
       return {
         ...r,
@@ -906,10 +1164,9 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     const countNum = parseInt(newMemberForm.workloadCount) || 0;
     const countStr = newMemberForm.workloadCount.trim() || '0';
 
-    setRounds(prev => prev.map(r => {
+    updateRoundsAndSync(prev => prev.map(r => {
       if (r.id !== addMemberModal.roundId) return r;
 
-      // Check if already in this round
       const exists = r.allocations.some(a => a.memberName.toLowerCase().includes(chosenName.toLowerCase().split(' ')[0]));
       if (exists) {
         showToast(`${chosenName} is already assigned to Round ${r.round}.`);
@@ -951,9 +1208,8 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       return;
     }
 
-    setRounds(prev => prev.map(r => {
+    updateRoundsAndSync(prev => prev.map(r => {
       if (r.id !== roundId) return r;
-      const targetRoundNum = r.round;
       const remaining = r.allocations.filter(a => a.memberName.toLowerCase() !== memberName.toLowerCase());
       return {
         ...r,
@@ -967,7 +1223,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
   // =========================================================================
   // REQUIREMENT 3 & 4: MEMBER-WISE DELIVERY DATE STATUS & AUTO SELECTION
   // When Dan/Admin sets delivery to green, automatically selects active sprint
-  // and selects the Overall + current week progress tab!
+  // based on the delivery date, and selects the Overall + current week progress tab!
   // =========================================================================
   const handleToggleMemberDelivery = (roundId: string, memberName: string) => {
     if (!canManageAssignments) {
@@ -975,10 +1231,13 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       return;
     }
 
-    setRounds(prev => prev.map(r => {
-      if (r.id !== roundId) return r;
+    let becameDelivered = false;
+    let targetRoundNum: number | string = 1;
 
-      let becameDelivered = false;
+    updateRoundsAndSync(prev => prev.map(r => {
+      if (r.id !== roundId) return r;
+      targetRoundNum = r.round;
+
       const updatedAllocations = r.allocations.map(a => {
         if (a.memberName.toLowerCase() === memberName.toLowerCase()) {
           const nextStatus: DeliveryStatus = a.deliverStatus === 'delivered' ? 'not_started' : 'delivered';
@@ -994,22 +1253,24 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       const allDelivered = updatedAllocations.length > 0 && updatedAllocations.every(a => a.deliverStatus === 'delivered');
       const anyDelivered = updatedAllocations.some(a => a.deliverStatus === 'delivered');
 
-      // REQUIREMENT 4: If delivered and made green by Dan or Admin,
-      // auto-select that current assigned week progress + overall tab!
-      if (becameDelivered) {
-        setTimeout(() => {
-          setManualRoundOverride(Number(r.round));
-          setProgressTab('combined');
-          showToast(`⚡ Round ${r.round} Delivery Green! Auto-selected Dual Progress View (Overall + Round ${r.round} Progress).`);
-        }, 60);
-      }
-
       return {
         ...r,
         deliverCompleted: allDelivered || anyDelivered,
         allocations: updatedAllocations
       };
     }));
+
+    // REQUIREMENT 4: Auto-select Overall Tab + current assigned week progress based on delivery date
+    if (becameDelivered) {
+      const num = Number(targetRoundNum);
+      setExplicitActiveDeliveryRound(num);
+      try {
+        localStorage.setItem(STORAGE_KEY + '_active_round', String(num));
+      } catch {}
+      setManualRoundOverride(null);
+      setProgressTab('combined');
+      showToast(`⚡ Round ${num} delivery marked green! Auto-selected Dual View (Overall + Round ${num} Progress).`);
+    }
   };
 
   // Quick toggle entire round delivery
@@ -1018,30 +1279,39 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       showToast('Delivery status is managed by Dr. Dan Tian or Lab Admin.');
       return;
     }
-    setRounds(prev => prev.map(r => {
+
+    let becameDelivered = false;
+    let targetRoundNum: number | string = 1;
+
+    updateRoundsAndSync(prev => prev.map(r => {
       if (r.id !== roundId) return r;
+      targetRoundNum = r.round;
       const nextVal = !r.deliverCompleted;
+      if (nextVal) becameDelivered = true;
       const nextStatus: DeliveryStatus = nextVal ? 'delivered' : 'not_started';
       const updatedAllocations = r.allocations.map(a => ({
         ...a,
         deliverStatus: nextStatus
       }));
 
-      // REQUIREMENT 4: Auto-select Overall Tab + current assigned week progress
-      if (nextVal) {
-        setTimeout(() => {
-          setManualRoundOverride(Number(r.round));
-          setProgressTab('combined');
-          showToast(`⚡ Round ${r.round} Marked Delivered! Auto-selected Dual View (Overall + Round ${r.round} Week Progress).`);
-        }, 60);
-      }
-
       return {
         ...r,
         deliverCompleted: nextVal,
         allocations: updatedAllocations
       };
-    }));
+    }), becameDelivered ? Number(targetRoundNum) : undefined);
+
+    // REQUIREMENT 4: Auto-select Overall Tab + current assigned week progress based on delivery date
+    if (becameDelivered) {
+      const num = Number(targetRoundNum);
+      setExplicitActiveDeliveryRound(num);
+      try {
+        localStorage.setItem(STORAGE_KEY + '_active_round', String(num));
+      } catch {}
+      setManualRoundOverride(null);
+      setProgressTab('combined');
+      showToast(`⚡ Round ${num} delivery marked green! Auto-selected Dual View (Overall + Round ${num} Progress).`);
+    }
   };
 
   // =========================================================================
@@ -1052,7 +1322,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       showToast('Collection status and dates are managed by Dr. Dan Tian or Lab Admin.');
       return;
     }
-    setRounds(prev => prev.map(r => {
+    updateRoundsAndSync(prev => prev.map(r => {
       if (r.id !== roundId) return r;
       const updatedAllocations = r.allocations.map(a => {
         if (a.memberName.toLowerCase() === memberName.toLowerCase()) {
@@ -1075,7 +1345,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       showToast('Collection status is managed in Admin Mode.');
       return;
     }
-    setRounds(prev => prev.map(r => {
+    updateRoundsAndSync(prev => prev.map(r => {
       if (r.id !== roundId) return r;
       const nextVal = !r.collectCompleted;
       const nextStatus: CollectStatus = nextVal ? 'collected' : 'not_started';
@@ -1101,7 +1371,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       showToast('QC checkpoints and verification are managed by Dr. Dan Tian or Lab Admin.');
       return;
     }
-    setRounds(prev => prev.map(r => {
+    updateRoundsAndSync(prev => prev.map(r => {
       if (r.id !== roundId) return r;
       const updatedAllocations = r.allocations.map(a => {
         if (a.memberName.toLowerCase() === memberName.toLowerCase()) {
@@ -1146,7 +1416,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       showToast('Backup archive status is managed by Dr. Dan Tian or Lab Admin.');
       return;
     }
-    setRounds(prev => prev.map(r => {
+    updateRoundsAndSync(prev => prev.map(r => {
       if (r.id !== roundId) return r;
       const updatedAllocations = r.allocations.map(a => {
         if (a.memberName.toLowerCase() === memberName.toLowerCase()) {
@@ -1169,7 +1439,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       showToast('Backup archive status is verified in Admin Mode.');
       return;
     }
-    setRounds(prev => prev.map(r => {
+    updateRoundsAndSync(prev => prev.map(r => {
       if (r.id !== roundId) return r;
       const nextVal = !r.backupCompleted;
       const nextStatus: BackupStatus = nextVal ? 'backed_up' : 'not_started';
@@ -1192,7 +1462,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       showToast('Dates are managed by Dr. Dan Tian or Lab Admin.');
       return;
     }
-    setRounds(prev => prev.map(r => {
+    updateRoundsAndSync(prev => prev.map(r => {
       if (r.id !== roundId) return r;
       return {
         ...r,
@@ -1222,7 +1492,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
   const handleSaveEditRound = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingRound) return;
-    setRounds(prev => prev.map(r => r.id === editingRound.id ? editingRound : r));
+    updateRoundsAndSync(prev => prev.map(r => r.id === editingRound.id ? editingRound : r));
     setIsEditModalOpen(false);
     setEditingRound(null);
     showToast(`Round ${editingRound.round} successfully updated!`);
@@ -1315,7 +1585,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       notes: newRoundForm.notes
     };
 
-    setRounds(prev => [...prev, newRow]);
+    updateRoundsAndSync(prev => [...prev, newRow]);
     setIsAddModalOpen(false);
     showToast(`Added Round ${newRow.round} to schedule table!`);
   };
@@ -1385,6 +1655,16 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               </span>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-cyan-950/80 text-cyan-300 border border-cyan-800/80">
                 SWOT & SAR Water Segmentation
+              </span>
+
+              {/* Cloud Sync Status Pill */}
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+                cloudSyncStatus === 'synced'
+                  ? 'bg-emerald-950 text-emerald-300 border-emerald-700'
+                  : 'bg-indigo-950 text-indigo-300 border-indigo-700'
+              }`}>
+                <Radio className={`w-3 h-3 ${realtimeActive ? 'text-emerald-400 animate-pulse' : 'text-slate-400'}`} />
+                <span>{cloudSyncStatus === 'synced' ? 'Cloud Synced' : realtimeActive ? 'Live Realtime' : 'Local Storage'}</span>
               </span>
             </div>
 
@@ -1545,6 +1825,85 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
         </div>
       </div>
 
+      {/* CLOUD DATABASE SYNC HELPER BANNER (IF TABLE NOT YET CREATED IN SUPABASE) */}
+      {cloudSyncStatus === 'table_needed' && (
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 text-xs text-amber-950 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-sm animate-in fade-in duration-300">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-amber-200/80 rounded-lg text-amber-800 shrink-0 mt-0.5">
+              <Database className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-black text-sm text-amber-950">
+                  Admin Setup: Enable Permanent Cross-Device Progress Sync
+                </span>
+                <span className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 border border-amber-300">
+                  1-Minute Action
+                </span>
+              </div>
+              <p className="text-xs text-amber-900 mt-1 leading-relaxed max-w-3xl">
+                When a lab member updates their finished reservoirs on their device, Supabase broadcasts it live via WebSockets. To ensure the Admin always sees the member's progress even after they close their browser, create the <code className="font-mono font-bold bg-amber-200/70 px-1 py-0.5 rounded text-amber-950">reservoir_matrix</code> table once in your Supabase project.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                const sql = `CREATE TABLE IF NOT EXISTS public.reservoir_matrix (
+  id text PRIMARY KEY,
+  rounds jsonb NOT NULL,
+  active_round int DEFAULT 3,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  updated_by text
+);
+ALTER TABLE public.reservoir_matrix ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "reservoir_matrix_read" ON public.reservoir_matrix FOR SELECT USING (true);
+CREATE POLICY "reservoir_matrix_write" ON public.reservoir_matrix FOR ALL USING (true) WITH CHECK (true);
+ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
+                navigator.clipboard.writeText(sql);
+                showToast('📋 Copied Supabase SQL table code to clipboard!');
+              }}
+              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-lg text-xs cursor-pointer shadow-xs flex items-center gap-1.5 transition-colors"
+              title="Copy the SQL command needed to create the table in Supabase"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>Copy SQL</span>
+            </button>
+
+            <a
+              href="https://supabase.com/dashboard/project/qulkwrhajibaddvgjaht/editor"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-lg text-xs shadow-xs flex items-center gap-1.5 transition-colors"
+              title="Open your Supabase project SQL Editor in a new tab"
+            >
+              <ArrowUpRight className="w-4 h-4 text-cyan-400" />
+              <span>Open Supabase SQL Editor</span>
+            </a>
+
+            <button
+              type="button"
+              onClick={async () => {
+                showToast('Checking Supabase connection...');
+                await fetchCloudData();
+                if (cloudSyncStatus === 'synced') {
+                  showToast('🎉 Cloud database connected! Member progress will now persist across all devices.');
+                } else {
+                  showToast('Table not found yet. Please paste and run the SQL in Supabase SQL Editor first.');
+                }
+              }}
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-lg text-xs cursor-pointer shadow-xs flex items-center gap-1.5 transition-colors"
+              title="Verify if the table has been created in Supabase"
+            >
+              <Check className="w-4 h-4" />
+              <span>Verify & Sync Now</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* =========================================================================
           PROGRESS DASHBOARD: BOTH OVERALL PROGRESS & CURRENT WEEK / ROUND PROGRESS
           (Auto-selected upon Delivery marked green!)
@@ -1584,10 +1943,10 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                 className="text-xs font-extrabold text-[#9E1B32] bg-transparent focus:outline-none cursor-pointer"
               >
                 <option value="auto">
-                  ⚡ Auto: Round {autoDetectedActiveRound} (Active Sprint)
+                  ⚡ Auto: Round {autoDetectedActiveRound} (Active Delivery Sprint)
                 </option>
                 {rounds.map(r => {
-                  const isDelivered = r.deliverCompleted || r.allocations.some(a => a.deliverStatus === 'delivered');
+                  const isDelivered = r.deliverCompleted || (r.allocations.length > 0 && r.allocations.some(a => a.deliverStatus === 'delivered'));
                   const isVerified = r.allocations.length > 0 && r.allocations.every(a => a.checkStatus === 'verified' || a.danVerified);
                   let tag = isVerified ? '✓ Verified' : isDelivered ? '🟢 Delivered' : 'Scheduled';
                   return (
@@ -1603,7 +1962,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                   type="button"
                   onClick={() => {
                     setManualRoundOverride(null);
-                    showToast(`Returned to Auto-Tracking: Round ${autoDetectedActiveRound} is active.`);
+                    showToast(`Returned to Auto-Tracking: Round ${autoDetectedActiveRound} is active based on Delivery.`);
                   }}
                   className="ml-1 text-[10px] text-cyan-800 bg-cyan-100 hover:bg-cyan-200 px-1.5 py-0.5 rounded font-extrabold cursor-pointer transition-colors"
                   title="Reset to Auto-detected active sprint"
@@ -1862,7 +2221,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                 </h2>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Table format matching ERSL protocol. Numbers, assignments, dates, and quality statuses update dynamically.
+                Table format matching ERSL protocol. Numbers, assignments, dates, and quality statuses update dynamically and sync across lab members.
               </p>
             </div>
 
@@ -2112,7 +2471,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                               ⚪ Empty circle (not yet started)
                               🟢 Solid green circle (delivered)
                             - Dan/Admin only can toggle status or change date
-                            - When marked green, triggers auto-selection of Overall + week progress!
+                            - When marked green, triggers auto-selection of active sprint based on delivery date + Dual View!
                             ========================================================================= */}
                         <td className="py-4 px-3 border-r border-slate-200 align-top space-y-1.5">
                           {r.allocations.map((a, aIdx) => (
@@ -2192,21 +2551,44 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                             </div>
                           ))}
 
-                          {/* Quick round delivery button for Dan / Admin */}
-                          {canManageAssignments && (
-                            <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px]">
+                          {/* Quick round delivery button and active delivery sprint indicator for Dan / Admin */}
+                          <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px]">
+                            {canManageAssignments ? (
                               <button
                                 type="button"
                                 onClick={() => handleToggleDeliver(r.id)}
                                 className={`font-extrabold px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
                                   r.deliverCompleted ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                 }`}
-                                title="Mark entire round delivery done and auto-select sprint"
+                                title="Mark entire round delivery done and auto-select sprint based on delivery date"
                               >
                                 {r.deliverCompleted ? '✓ Round Delivered' : 'Deliver All'}
                               </button>
-                            </div>
-                          )}
+                            ) : <div />}
+
+                            {Number(r.round) === activeSprintRound ? (
+                              <span className="text-[9px] font-black text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-300 flex items-center gap-0.5" title="This round is the active sprint determined by delivery date">
+                                <Sparkles className="w-2.5 h-2.5 text-emerald-600" /> Active Delivery
+                              </span>
+                            ) : (
+                              canManageAssignments && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setExplicitActiveDeliveryRound(Number(r.round));
+                                    setManualRoundOverride(null);
+                                    setProgressTab('combined');
+                                    updateRoundsAndSync(p => [...p], Number(r.round));
+                                    showToast(`⚡ Switched active delivery sprint to Round ${r.round}! Auto-selected Dual View.`);
+                                  }}
+                                  className="text-[9px] text-slate-400 hover:text-emerald-700 hover:underline cursor-pointer"
+                                  title="Set this delivery round as the active sprint"
+                                >
+                                  Set Active
+                                </button>
+                              )
+                            )}
+                          </div>
                         </td>
 
                         {/* =========================================================================
@@ -2645,7 +3027,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
             <div className="flex items-center gap-1.5">
               <Info className="w-4 h-4 text-slate-400" />
               <span>
-                ERSL Protocol Matrix: Workload progress is updated by members. Delivery, collection, check, and backup statuses are signed off by Dr. Dan Tian or Lab Admin.
+                ERSL Protocol Matrix: Live-synced across lab researchers. Delivery, collection, check, and backup statuses are signed off by Dr. Dan Tian or Lab Admin.
               </span>
             </div>
             <div className="font-semibold text-slate-700">
@@ -2959,7 +3341,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono font-black text-[#9E1B32] text-sm"
                 />
                 <p className="text-[10px] text-slate-500 mt-1">
-                  Enter your current number of completed reservoirs. Progress automatically updates across lab metrics.
+                  Enter your current number of completed reservoirs. Progress automatically updates and syncs live with the lab admin.
                 </p>
               </div>
 

@@ -108,5 +108,26 @@ create policy "box read" on public.box_folders for select
 create policy "box admin write" on public.box_folders for all
   using (public.is_admin()) with check (public.is_admin());
 
+-- ===== Reservoir Project Matrix (Shared Collaborative Progress) =====
+create table if not exists public.reservoir_matrix (
+  id text primary key,
+  rounds jsonb not null,
+  active_round int default 3,
+  updated_at timestamptz not null default now(),
+  updated_by text
+);
+
+alter table public.reservoir_matrix enable row level security;
+
+drop policy if exists "reservoir_matrix_read" on public.reservoir_matrix;
+create policy "reservoir_matrix_read" on public.reservoir_matrix for select using (true);
+
+drop policy if exists "reservoir_matrix_write" on public.reservoir_matrix;
+create policy "reservoir_matrix_write" on public.reservoir_matrix for all using (true) with check (true);
+
+-- Enable Realtime for reservoir_matrix
+alter publication supabase_realtime add table public.reservoir_matrix;
+
 -- ===== AFTER you create your own account on the site, make yourself admin =====
 -- update public.profiles set role = 'admin' where email = 'YOUR_EMAIL_HERE';
+
