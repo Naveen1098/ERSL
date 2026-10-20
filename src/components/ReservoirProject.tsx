@@ -24,8 +24,6 @@ import {
   ChevronDown,
   X, 
   ArrowUpRight, 
-  RotateCcw,
-  RefreshCw,
   Sparkles,
   Trophy,
   PartyPopper,
@@ -37,7 +35,9 @@ import {
   Square,
   Circle,
   Database,
-  ArrowRight
+  ArrowRight,
+  UserCheck,
+  Sliders
 } from 'lucide-react';
 
 export interface MemberAllocation {
@@ -45,7 +45,9 @@ export interface MemberAllocation {
   memberName: string;
   countText: string;
   numericCount: number;
+  finishedCount: number;
   completed: boolean;
+  notes?: string;
 }
 
 export interface CheckItem {
@@ -89,11 +91,11 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Finish: 168',
     cumulativeFinished: 168,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '40', numericCount: 40, completed: true },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '18', numericCount: 18, completed: true },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '9', numericCount: 9, completed: true },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '9', numericCount: 9, completed: true },
-      { memberId: 'person-tian', memberName: 'Dan', countText: '16', numericCount: 16, completed: true }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '40', numericCount: 40, finishedCount: 40, completed: true },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '18', numericCount: 18, finishedCount: 18, completed: true },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '9', numericCount: 9, finishedCount: 9, completed: true },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '9', numericCount: 9, finishedCount: 9, completed: true },
+      { memberId: 'person-tian', memberName: 'Dan', countText: '16', numericCount: 16, finishedCount: 16, completed: true }
     ],
     deliverDateText: '✓ -',
     deliverCompleted: true,
@@ -115,11 +117,11 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Finish: 168+210= 378',
     cumulativeFinished: 378,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '117', numericCount: 117, completed: true },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '47', numericCount: 47, completed: true },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '24', numericCount: 24, completed: true },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '23', numericCount: 23, completed: true },
-      { memberId: 'person-tian', memberName: 'Dan', countText: '35', numericCount: 35, completed: true }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '117', numericCount: 117, finishedCount: 117, completed: true },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '47', numericCount: 47, finishedCount: 47, completed: true },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '24', numericCount: 24, finishedCount: 24, completed: true },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '23', numericCount: 23, finishedCount: 23, completed: true },
+      { memberId: 'person-tian', memberName: 'Dan', countText: '35', numericCount: 35, finishedCount: 35, completed: true }
     ],
     deliverDateText: '✓ -',
     deliverCompleted: true,
@@ -146,10 +148,10 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Finish: 378+35+132= 545',
     cumulativeFinished: 545,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '94', numericCount: 94, completed: false },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '35 (small)', numericCount: 35, completed: false },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '19', numericCount: 19, completed: false },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '19', numericCount: 19, completed: false }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '94', numericCount: 94, finishedCount: 0, completed: false },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '35 (small)', numericCount: 35, finishedCount: 0, completed: false },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '19', numericCount: 19, finishedCount: 0, completed: false },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '19', numericCount: 19, finishedCount: 0, completed: false }
     ],
     deliverDateText: '10/7 Wed',
     deliverCompleted: true,
@@ -173,11 +175,11 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Target: 545+216= 761',
     cumulativeFinished: 761,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '65+31=96', numericCount: 96, completed: false },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, completed: false },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, completed: false },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, completed: false },
-      { memberId: 'person-tian', memberName: 'Dan', countText: '40', numericCount: 40, completed: false }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '65+31=96', numericCount: 96, finishedCount: 0, completed: false },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false },
+      { memberId: 'person-tian', memberName: 'Dan', countText: '40', numericCount: 40, finishedCount: 0, completed: false }
     ],
     deliverDateText: '10/16 Fri',
     deliverCompleted: false,
@@ -199,11 +201,11 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Target: 761+217= 978',
     cumulativeFinished: 978,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '43+54=97', numericCount: 97, completed: false },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, completed: false },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, completed: false },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, completed: false },
-      { memberId: 'person-tian', memberName: 'Dan', countText: '40', numericCount: 40, completed: false }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '43+54=97', numericCount: 97, finishedCount: 0, completed: false },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false },
+      { memberId: 'person-tian', memberName: 'Dan', countText: '40', numericCount: 40, finishedCount: 0, completed: false }
     ],
     deliverDateText: '10/23 Fri',
     deliverCompleted: false,
@@ -225,11 +227,11 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Target: 978+206= 1,184',
     cumulativeFinished: 1184,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '100', numericCount: 100, completed: false },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, completed: false },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, completed: false },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, completed: false },
-      { memberId: 'person-tian', memberName: 'Dan', countText: '40', numericCount: 40, completed: false }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '100', numericCount: 100, finishedCount: 0, completed: false },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false },
+      { memberId: 'person-tian', memberName: 'Dan', countText: '40', numericCount: 40, finishedCount: 0, completed: false }
     ],
     deliverDateText: '10/30 Fri',
     deliverCompleted: false,
@@ -251,10 +253,10 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Target: 1,184+180= 1,364',
     cumulativeFinished: 1364,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '100', numericCount: 100, completed: false },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, completed: false },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, completed: false },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, completed: false }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '100', numericCount: 100, finishedCount: 0, completed: false },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false }
     ],
     deliverDateText: '11/6 Fri',
     deliverCompleted: false,
@@ -276,10 +278,10 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Target: 1,364+180= 1,544',
     cumulativeFinished: 1544,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '100', numericCount: 100, completed: false },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, completed: false },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, completed: false },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, completed: false }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '100', numericCount: 100, finishedCount: 0, completed: false },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false }
     ],
     deliverDateText: '11/13 Fri',
     deliverCompleted: false,
@@ -294,27 +296,31 @@ export const getInitialRoundData = (): RoundRow[] => [
   }
 ];
 
-// Sweet, diverse congratulatory templates with random generation
+const sanitizeRounds = (data: any[]): RoundRow[] => {
+  return data.map(r => ({
+    ...r,
+    allocations: (r.allocations || []).map((a: any) => ({
+      ...a,
+      finishedCount: typeof a.finishedCount === 'number' ? a.finishedCount : (a.completed ? a.numericCount : 0)
+    }))
+  }));
+};
+
 const CONGRATULATION_TEMPLATES = [
   (name: string, round: string | number, count: number) => ({
     headline: "🎉 Outstanding Milestone Reached!",
     subhead: "Precision & Dedication at its Finest",
-    body: `Incredible work, ${name}! You have successfully completed your assigned ${count.toLocaleString()} reservoirs in Round ${round}. Dr. Hongxing Liu and the entire ERSL research group celebrate your outstanding dedication to remote sensing excellence!`
+    body: `Incredible work, ${name}! You have successfully completed all ${count.toLocaleString()} assigned samples in Round ${round}. Dr. Hongxing Liu and the ERSL research team celebrate your dedication!`
   }),
   (name: string, round: string | number, count: number) => ({
     headline: "🌟 Phenomenal Achievement!",
     subhead: "Target Crushed with 100% Precision",
-    body: `Bravo, ${name}! You've powered through ${count.toLocaleString()} water bodies in Round ${round}. Your high-standard polygon delineation brings our national surface water database one giant leap closer to completion!`
+    body: `Bravo, ${name}! You've powered through ${count.toLocaleString()} reservoirs in Round ${round}. Your polygon delineation brings our national surface water database closer to completion!`
   }),
   (name: string, round: string | number, count: number) => ({
     headline: "🏆 Hats Off to You, Scholar!",
     subhead: "A Huge Win for the ERSL Lab",
-    body: `Sensational performance, ${name}! Reaching 100% completion on ${count.toLocaleString()} water bodies in Round ${round} reflects true scientific diligence. Thank you for your tireless contribution to our lab!`
-  }),
-  (name: string, round: string | number, count: number) => ({
-    headline: "🌊 Hydrological Mastery Unlocked!",
-    subhead: "Flawless Watershed Processing",
-    body: `Warmest congratulations, ${name}! Round ${round} data processing (${count.toLocaleString()} reservoirs) is officially conquered. Keep up this magnificent momentum, your hard work shines bright!`
+    body: `Sensational performance, ${name}! Completing ${count.toLocaleString()} water bodies in Round ${round} reflects true scientific diligence. Thank you for your tireless contribution to our lab!`
   })
 ];
 
@@ -323,11 +329,11 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
   const isEmailAdmin = ADMIN_EMAILS.some(e => e.toLowerCase().trim() === userEmail);
   const isRoleAdmin = currentUser?.role === 'Admin' || currentUser?.role?.toLowerCase() === 'admin';
 
-  // Toggle for Admin Edit Mode (defaults to true for active management)
+  // Toggle for Admin Edit Mode (allows switching between Admin Mode and Member Mode)
   const [adminMode, setAdminMode] = useState<boolean>(() => {
     const saved = localStorage.getItem('ersl_reservoir_admin_mode');
     if (saved !== null) return saved === 'true';
-    return true;
+    return false; // Default to member mode so members experience sample progress editing
   });
 
   const isAdmin = isEmailAdmin || isRoleAdmin || adminMode;
@@ -368,12 +374,13 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     });
   };
 
-  // Load round data from localStorage or initial document baseline
+  // Load round data from localStorage (persisted across edits, never reset automatically)
   const [rounds, setRounds] = useState<RoundRow[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        return sanitizeRounds(parsed);
       }
     } catch (e) {
       console.error('Failed to parse saved reservoir round data', e);
@@ -390,11 +397,10 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     }
   }, [rounds]);
 
-  // Distinct members list from all rounds with their initial profiles
+  // Distinct members list
   const teamMembers = useMemo(() => {
     const map = new Map<string, { id: string; name: string; email?: string; image?: string; role?: string }>();
     
-    // Default known team members
     const known = [
       { id: 'person-raju', name: 'Saravanan Raju', shortName: 'Saravanan' },
       { id: 'person-seo', name: 'Jihee Seo', shortName: 'Jihee' },
@@ -417,7 +423,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     return map;
   }, []);
 
-  // Compute Overall Stats from real round details
+  // Compute Overall Stats
   const stats = useMemo(() => {
     let grandAllocated = 0;
     let grandFinished = 0;
@@ -444,18 +450,14 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       const isRoundAllCompleted = r.allocations.length > 0 && r.allocations.every(a => a.completed);
       if (isRoundAllCompleted) {
         completedRounds++;
-        grandFinished += r.basinNumericTotal || 0;
       } else {
         activeRounds++;
-        // Sum individual completed
-        r.allocations.forEach(a => {
-          if (a.completed) {
-            grandFinished += a.numericCount || 0;
-          }
-        });
       }
 
+      // Sum individual member completed counts
       r.allocations.forEach(a => {
+        grandFinished += a.finishedCount || 0;
+
         const key = a.memberName.split(' ')[0];
         if (!memberProgress[key]) {
           memberProgress[key] = {
@@ -467,9 +469,9 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
           };
         }
         memberProgress[key].assigned += a.numericCount || 0;
+        memberProgress[key].finished += a.finishedCount || 0;
         memberProgress[key].tasksCount++;
         if (a.completed) {
-          memberProgress[key].finished += a.numericCount || 0;
           memberProgress[key].completedTasks++;
         }
       });
@@ -507,7 +509,78 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     });
   }, [rounds, searchQuery, filterMember]);
 
-  // Toggle member allocation checkmark
+  // =========================================================================
+  // MEMBER SAMPLE & PROCESS COMPLETION MODAL STATE
+  // Editable in BOTH Member Mode and Admin Mode
+  // =========================================================================
+  const [sampleModal, setSampleModal] = useState<{
+    roundId: string;
+    roundNum: number | string;
+    basinName: string;
+    memberId: string;
+    memberName: string;
+    numericCount: number;
+    finishedCount: number;
+    completed: boolean;
+    notes?: string;
+  } | null>(null);
+
+  const handleOpenSampleModal = (r: RoundRow, a: MemberAllocation) => {
+    setSampleModal({
+      roundId: r.id,
+      roundNum: r.round,
+      basinName: r.basinTotalText,
+      memberId: a.memberId,
+      memberName: a.memberName,
+      numericCount: a.numericCount,
+      finishedCount: a.finishedCount,
+      completed: a.completed,
+      notes: a.notes || ''
+    });
+  };
+
+  const handleSaveSampleModal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sampleModal) return;
+
+    const isNewlyCompleted = 
+      (sampleModal.completed || sampleModal.finishedCount >= sampleModal.numericCount) && 
+      sampleModal.numericCount > 0;
+
+    setRounds(prev => prev.map(r => {
+      if (r.id !== sampleModal.roundId) return r;
+      return {
+        ...r,
+        allocations: r.allocations.map(a => {
+          if (a.memberName.toLowerCase() === sampleModal.memberName.toLowerCase()) {
+            const isDone = sampleModal.completed || (sampleModal.finishedCount >= sampleModal.numericCount && sampleModal.numericCount > 0);
+            return {
+              ...a,
+              finishedCount: Math.max(0, sampleModal.finishedCount),
+              completed: isDone,
+              notes: sampleModal.notes
+            };
+          }
+          return a;
+        })
+      };
+    }));
+
+    const memberName = sampleModal.memberName;
+    const roundNum = sampleModal.roundNum;
+    const finishedCount = sampleModal.finishedCount;
+
+    setSampleModal(null);
+    showToast(`Updated sample progress for ${memberName} in Round ${roundNum}!`);
+
+    if (isNewlyCompleted) {
+      setTimeout(() => {
+        triggerCongrats(memberName, roundNum, finishedCount);
+      }, 250);
+    }
+  };
+
+  // Toggle member allocation checkmark directly
   const handleToggleMemberCompletion = (roundId: string, memberName: string) => {
     setRounds(prev => prev.map(r => {
       if (r.id !== roundId) return r;
@@ -518,12 +591,17 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       const updatedAllocations = r.allocations.map(a => {
         if (a.memberName.toLowerCase() === memberName.toLowerCase()) {
           const nextVal = !a.completed;
+          const updatedFinished = nextVal ? a.numericCount : 0;
           if (nextVal) {
             isNewlyDone = true;
             targetFinishedCount = a.numericCount;
             targetAllocatedName = a.memberName;
           }
-          return { ...a, completed: nextVal };
+          return { 
+            ...a, 
+            completed: nextVal,
+            finishedCount: updatedFinished 
+          };
         }
         return a;
       });
@@ -541,24 +619,34 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     }));
   };
 
-  // Toggle delivery status
+  // Admin toggles (Delivery, Collection, QA Check, Backup)
   const handleToggleDeliver = (roundId: string) => {
+    if (!isAdmin) {
+      showToast('Delivery status is managed in Admin Mode.');
+      return;
+    }
     setRounds(prev => prev.map(r => {
       if (r.id !== roundId) return r;
       return { ...r, deliverCompleted: !r.deliverCompleted };
     }));
   };
 
-  // Toggle collect status
   const handleToggleCollect = (roundId: string) => {
+    if (!isAdmin) {
+      showToast('Collection status is managed in Admin Mode.');
+      return;
+    }
     setRounds(prev => prev.map(r => {
       if (r.id !== roundId) return r;
       return { ...r, collectCompleted: !r.collectCompleted };
     }));
   };
 
-  // Toggle check sub-item
   const handleToggleCheckItem = (roundId: string, itemId: string) => {
+    if (!isAdmin) {
+      showToast('QA/QC verification checkpoints are signed off in Admin Mode.');
+      return;
+    }
     setRounds(prev => prev.map(r => {
       if (r.id !== roundId) return r;
       const updatedItems = r.checkItems.map(item => {
@@ -576,24 +664,18 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     }));
   };
 
-  // Toggle backup status
   const handleToggleBackup = (roundId: string) => {
+    if (!isAdmin) {
+      showToast('Backup archive status is verified in Admin Mode.');
+      return;
+    }
     setRounds(prev => prev.map(r => {
       if (r.id !== roundId) return r;
       return { ...r, backupCompleted: !r.backupCompleted };
     }));
   };
 
-  // Reset to Word document baseline data
-  const handleResetToBaseline = () => {
-    if (confirm('Reset table to the exact data provided in the reservoir Word document? Any unsaved edits will be refreshed.')) {
-      setRounds(getInitialRoundData());
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(getInitialRoundData()));
-      showToast('Table reset to Word document baseline!');
-    }
-  };
-
-  // Modal: Edit Round State
+  // Modal: Edit Round State (Admin Mode)
   const [editingRound, setEditingRound] = useState<RoundRow | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
@@ -611,7 +693,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     showToast(`Round ${editingRound.round} successfully updated!`);
   };
 
-  // Modal: Add New Round State
+  // Modal: Add New Round State (Admin Mode)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newRoundForm, setNewRoundForm] = useState<{
     round: number;
@@ -633,7 +715,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     basinTotal: 'Total: 200',
     numericTotal: 200,
     subBasinsText: 'Lower Mississippi Tributaries: 200',
-    finishFormula: 'Target: 1,544+200= 1,744',
+    finishFormula: 'Target: +200 reservoirs',
     deliverDate: '11/20 Fri',
     collectDate: '12/1 Tue',
     checkDate: 'Scheduled',
@@ -671,11 +753,11 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     const subBasinsList = newRoundForm.subBasinsText.split('\n').map(s => s.trim()).filter(Boolean);
 
     const allocations: MemberAllocation[] = [];
-    if (newRoundForm.saravananCount) allocations.push({ memberId: 'person-raju', memberName: 'Saravanan', countText: newRoundForm.saravananCount, numericCount: parseInt(newRoundForm.saravananCount) || 0, completed: false });
-    if (newRoundForm.jiheeCount) allocations.push({ memberId: 'person-seo', memberName: 'Jihee', countText: newRoundForm.jiheeCount, numericCount: parseInt(newRoundForm.jiheeCount) || 0, completed: false });
-    if (newRoundForm.tantuCount) allocations.push({ memberId: 'person-mandal', memberName: 'Tantu', countText: newRoundForm.tantuCount, numericCount: parseInt(newRoundForm.tantuCount) || 0, completed: false });
-    if (newRoundForm.anindyaCount) allocations.push({ memberId: 'person-palaparthi', memberName: 'Anindya', countText: newRoundForm.anindyaCount, numericCount: parseInt(newRoundForm.anindyaCount) || 0, completed: false });
-    if (newRoundForm.danCount) allocations.push({ memberId: 'person-tian', memberName: 'Dan', countText: newRoundForm.danCount, numericCount: parseInt(newRoundForm.danCount) || 0, completed: false });
+    if (newRoundForm.saravananCount) allocations.push({ memberId: 'person-raju', memberName: 'Saravanan', countText: newRoundForm.saravananCount, numericCount: parseInt(newRoundForm.saravananCount) || 0, finishedCount: 0, completed: false });
+    if (newRoundForm.jiheeCount) allocations.push({ memberId: 'person-seo', memberName: 'Jihee', countText: newRoundForm.jiheeCount, numericCount: parseInt(newRoundForm.jiheeCount) || 0, finishedCount: 0, completed: false });
+    if (newRoundForm.tantuCount) allocations.push({ memberId: 'person-mandal', memberName: 'Tantu', countText: newRoundForm.tantuCount, numericCount: parseInt(newRoundForm.tantuCount) || 0, finishedCount: 0, completed: false });
+    if (newRoundForm.anindyaCount) allocations.push({ memberId: 'person-palaparthi', memberName: 'Anindya', countText: newRoundForm.anindyaCount, numericCount: parseInt(newRoundForm.anindyaCount) || 0, finishedCount: 0, completed: false });
+    if (newRoundForm.danCount) allocations.push({ memberId: 'person-tian', memberName: 'Dan', countText: newRoundForm.danCount, numericCount: parseInt(newRoundForm.danCount) || 0, finishedCount: 0, completed: false });
 
     const newRow: RoundRow = {
       id: newId,
@@ -703,14 +785,14 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     showToast(`Added Round ${newRow.round} to schedule table!`);
   };
 
-  // Export CSV matching the exact table format
+  // Export CSV
   const handleExportCSV = () => {
     const headers = ['Round', 'Basin Details', 'Cumulative Finish', 'Member Allocations', 'Deliver Date', 'Deliver Done', 'Collect Date', 'Collect Done', 'Check Date & QA Notes', 'Backup Date'];
     
     const rows = rounds.map(r => {
       const basinStr = `"${r.basinTotalText} | ${r.subBasins.join('; ')}"`;
       const finishStr = `"${r.finishFormula || r.cumulativeFinished}"`;
-      const allocStr = `"${r.allocations.map(a => `${a.memberName}: ${a.countText} [${a.completed ? 'DONE' : 'PENDING'}]`).join(', ')}"`;
+      const allocStr = `"${r.allocations.map(a => `${a.memberName}: ${a.finishedCount}/${a.numericCount} [${a.completed ? 'DONE' : 'IN_PROGRESS'}]`).join(', ')}"`;
       const deliverDone = r.deliverCompleted ? 'Yes' : 'No';
       const collectDone = r.collectCompleted ? 'Yes' : 'No';
       const checkNotes = `"${r.checkDateText || ''} ${r.checkItems.map(i => `${i.headerDate ? i.headerDate + ': ' : ''}${i.text}`).join('; ')}"`;
@@ -770,24 +852,33 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
 
           {/* Quick Action Buttons */}
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* Admin Controls Mode Switch */}
+            {/* Mode Toggle Switch: Admin Mode vs Member Mode */}
             <button
               type="button"
               onClick={() => {
                 const next = !adminMode;
                 setAdminMode(next);
                 localStorage.setItem('ersl_reservoir_admin_mode', String(next));
-                showToast(next ? 'Admin Mode Activated — Full Editing Enabled' : 'Admin Mode Deactivated');
+                showToast(next ? 'Admin Mode Active — All Sections Fully Editable' : 'Member Mode Active — Sample & Progress Editing Enabled');
               }}
               className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer border ${
                 isAdmin 
                   ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500 shadow-md ring-2 ring-emerald-400/30' 
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                  : 'bg-indigo-700 hover:bg-indigo-600 text-white border-indigo-500 shadow-sm'
               }`}
-              title="Click to toggle administrative editing permissions"
+              title="Click to toggle between Admin Full Editing Mode and Member Progress Mode"
             >
-              <ShieldCheck className="w-4 h-4 text-emerald-200" />
-              <span>Admin Mode: {isAdmin ? 'Active' : 'Viewer'}</span>
+              {isAdmin ? (
+                <>
+                  <ShieldCheck className="w-4 h-4 text-emerald-200" />
+                  <span>Admin Mode: Full Edit (All Sections)</span>
+                </>
+              ) : (
+                <>
+                  <UserCheck className="w-4 h-4 text-indigo-200" />
+                  <span>Member Mode: Edit Samples & Progress</span>
+                </>
+              )}
             </button>
 
             <button
@@ -797,15 +888,6 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
             >
               <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
               Export CSV
-            </button>
-
-            <button
-              onClick={handleResetToBaseline}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition-all border border-slate-700 shadow-sm cursor-pointer"
-              title="Reset data to original Word document baseline"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-              Reset Baseline
             </button>
 
             {isAdmin && (
@@ -864,7 +946,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               CRB (168) + SAGB Below 1km² (210) + SAGB Large/Small (167)
             </p>
             <span className="text-[11px] text-emerald-400 font-bold mt-1 inline-block">
-              Document Milestone Reached
+              Archived & Persistent in Database
             </span>
           </div>
 
@@ -908,6 +990,45 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
           </div>
 
         </div>
+      </div>
+
+      {/* Mode Guidance Alert Banner */}
+      <div className={`p-4 rounded-xl border flex items-center justify-between gap-3 text-xs ${
+        isAdmin 
+          ? 'bg-emerald-50 border-emerald-200 text-emerald-900' 
+          : 'bg-indigo-50 border-indigo-200 text-indigo-900'
+      }`}>
+        <div className="flex items-center gap-2.5">
+          {isAdmin ? (
+            <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+          ) : (
+            <Sliders className="w-5 h-5 text-indigo-600 shrink-0" />
+          )}
+          <div>
+            <span className="font-bold">
+              {isAdmin ? 'Admin Mode is Active:' : 'Member Mode is Active:'}
+            </span>{' '}
+            {isAdmin 
+              ? 'You have full editing permissions across all sections: Basin definitions, dates, check items, allocations, and new rounds.'
+              : 'You can update completed sample counts and toggle process completion in the "Number" column. Administrative structural settings remain protected.'
+            }
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            const next = !adminMode;
+            setAdminMode(next);
+            localStorage.setItem('ersl_reservoir_admin_mode', String(next));
+          }}
+          className={`px-3 py-1 rounded-lg font-bold text-[11px] shrink-0 border cursor-pointer ${
+            isAdmin
+              ? 'bg-white text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+              : 'bg-white text-indigo-800 border-indigo-300 hover:bg-indigo-100'
+          }`}
+        >
+          Switch to {isAdmin ? 'Member Mode' : 'Admin Mode'}
+        </button>
       </div>
 
       {/* =========================================================================
@@ -965,7 +1086,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                 </div>
 
                 <div className="mt-3 flex items-center justify-between text-xs">
-                  <span className="text-[10px] font-semibold text-slate-500">Completed</span>
+                  <span className="text-[10px] font-semibold text-slate-500">Samples Done</span>
                   <span className="text-xs font-bold text-slate-800 font-mono">
                     {p.finished.toLocaleString()} / {p.assigned.toLocaleString()}
                   </span>
@@ -979,8 +1100,8 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                 </div>
 
                 <div className="mt-2 flex items-center justify-between text-[10px] text-slate-500">
-                  <span>Rounds Active:</span>
-                  <span className="font-bold text-slate-700">{p.completedTasks} / {p.tasksCount} done</span>
+                  <span>Rounds Complete:</span>
+                  <span className="font-bold text-slate-700">{p.completedTasks} / {p.tasksCount}</span>
                 </div>
               </div>
             );
@@ -1089,7 +1210,10 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                 )}
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Interactive Protocol Table: Click any purple circle/checkbox to mark completed or update status.
+                {isAdmin 
+                  ? 'Admin Mode: All columns and dates are editable. Click any checkmark, sample count, or edit icon.' 
+                  : 'Member Mode: Click any member row or sample count in the "Number" column to update completed samples and toggle completion.'
+                }
               </p>
             </div>
 
@@ -1100,7 +1224,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               </span>
               <span className="flex items-center gap-1">
                 <span className="w-3.5 h-3.5 rounded-full border border-slate-400 bg-white"></span>
-                Pending
+                In Progress / Pending
               </span>
             </div>
           </div>
@@ -1111,7 +1235,14 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                 <tr className="bg-slate-100 text-slate-800 text-xs font-black border-b border-slate-200">
                   <th className="py-3.5 px-4 w-16 text-center border-r border-slate-200">Round</th>
                   <th className="py-3.5 px-4 w-72 border-r border-slate-200">Basin & Cumulative Finish</th>
-                  <th className="py-3.5 px-4 min-w-[240px] border-r border-slate-200">Number (Team Member Workload)</th>
+                  <th className="py-3.5 px-4 min-w-[270px] border-r border-slate-200">
+                    <div className="flex items-center justify-between">
+                      <span>Number (Team Allocation & Samples)</span>
+                      <span className="text-[10px] text-[#9E1B32] font-extrabold uppercase bg-red-100 px-1.5 py-0.5 rounded">
+                        Editable
+                      </span>
+                    </div>
+                  </th>
                   <th className="py-3.5 px-4 w-36 border-r border-slate-200">Diliver date</th>
                   <th className="py-3.5 px-4 w-36 border-r border-slate-200">Collect date</th>
                   <th className="py-3.5 px-4 min-w-[220px] border-r border-slate-200">Check date</th>
@@ -1149,8 +1280,20 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
 
                         {/* 2. Basin */}
                         <td className="py-4 px-4 border-r border-slate-200 align-top space-y-2">
-                          <div className="font-extrabold text-slate-900 text-xs">
-                            {r.basinTotalText}
+                          <div className="flex items-center justify-between">
+                            <span className="font-extrabold text-slate-900 text-xs">
+                              {r.basinTotalText}
+                            </span>
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditRound(r)}
+                                className="text-slate-400 hover:text-[#9E1B32] p-0.5 rounded cursor-pointer"
+                                title="Edit basin details"
+                              >
+                                <Edit3 className="w-3 h-3" />
+                              </button>
+                            )}
                           </div>
 
                           {/* Sub-basins list */}
@@ -1179,26 +1322,32 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                           )}
                         </td>
 
-                        {/* 3. Number (Team Allocations with purple circular checkmarks) */}
+                        {/* 3. Number (Team Allocations - Editable for process completion & sample count) */}
                         <td className="py-4 px-4 border-r border-slate-200 align-top space-y-2">
                           <div className="space-y-2">
                             {r.allocations.map((a, aIdx) => {
                               const isMemberHighlighted = filterMember !== 'all' && a.memberName.toLowerCase().includes(filterMember.toLowerCase());
+                              const is100Pct = a.completed || (a.numericCount > 0 && a.finishedCount >= a.numericCount);
 
                               return (
                                 <div 
                                   key={aIdx} 
-                                  onClick={() => handleToggleMemberCompletion(r.id, a.memberName)}
-                                  className={`flex items-center gap-2.5 p-1.5 rounded-lg transition-all cursor-pointer ${
+                                  className={`flex items-center justify-between gap-2 p-1.5 rounded-lg border transition-all ${
                                     isMemberHighlighted
-                                      ? 'bg-red-50 ring-1 ring-[#9E1B32]/40 font-bold'
-                                      : 'hover:bg-slate-100/70'
+                                      ? 'bg-red-50 border-red-300 ring-1 ring-[#9E1B32]/30 font-bold'
+                                      : 'bg-slate-50/70 border-slate-200/80 hover:bg-white hover:border-slate-300 shadow-2xs'
                                   }`}
-                                  title="Click to toggle member completion"
                                 >
-                                  {/* Purple circular checkbox matching the document screenshot */}
-                                  <div className="shrink-0">
-                                    {a.completed ? (
+                                  {/* Purple circular checkbox (toggle complete) */}
+                                  <div 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleToggleMemberCompletion(r.id, a.memberName);
+                                    }}
+                                    className="shrink-0 cursor-pointer p-0.5"
+                                    title={a.completed ? "Click to set in-progress" : "Click to mark complete"}
+                                  >
+                                    {is100Pct ? (
                                       <div className="w-5 h-5 rounded-full bg-purple-700 flex items-center justify-center text-white shadow-xs">
                                         <Check className="w-3.5 h-3.5 stroke-[3]" />
                                       </div>
@@ -1207,13 +1356,28 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                                     )}
                                   </div>
 
-                                  <div className="flex items-center justify-between flex-1 text-xs">
-                                    <span className={`font-bold ${a.completed ? 'text-slate-800' : 'text-slate-700'}`}>
+                                  {/* Member name and sample count pill */}
+                                  <div 
+                                    onClick={() => handleOpenSampleModal(r, a)}
+                                    className="flex items-center justify-between flex-1 text-xs cursor-pointer hover:text-[#9E1B32] transition-colors"
+                                    title="Click to update completed samples count or task notes"
+                                  >
+                                    <span className={`font-bold ${is100Pct ? 'text-slate-900' : 'text-slate-800'}`}>
                                       {a.memberName}:
                                     </span>
-                                    <span className="font-mono font-bold text-slate-900 ml-1.5 bg-slate-100 px-1.5 py-0.2 rounded text-[11px]">
-                                      {a.countText}
-                                    </span>
+
+                                    <div className="flex items-center gap-1.5">
+                                      <span className={`font-mono text-[11px] font-extrabold px-2 py-0.5 rounded border ${
+                                        is100Pct 
+                                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                                          : a.finishedCount > 0
+                                            ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                            : 'bg-white text-slate-800 border-slate-300'
+                                      }`}>
+                                        {a.finishedCount} / {a.countText}
+                                      </span>
+                                      <Edit3 className="w-3 h-3 text-slate-400 hover:text-[#9E1B32]" />
+                                    </div>
                                   </div>
                                 </div>
                               );
@@ -1225,8 +1389,10 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                         <td className="py-4 px-4 border-r border-slate-200 align-top">
                           <div 
                             onClick={() => handleToggleDeliver(r.id)}
-                            className="flex items-center gap-2 cursor-pointer p-1.5 rounded-lg hover:bg-slate-100/70 transition-colors"
-                            title="Click to toggle delivery status"
+                            className={`flex items-center gap-2 p-1.5 rounded-lg transition-colors ${
+                              isAdmin ? 'cursor-pointer hover:bg-slate-100/70' : 'cursor-default'
+                            }`}
+                            title={isAdmin ? "Click to toggle delivery status (Admin)" : "Delivery Date"}
                           >
                             <div className="shrink-0">
                               {r.deliverCompleted ? (
@@ -1234,7 +1400,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                                   <Check className="w-3.5 h-3.5 stroke-[3]" />
                                 </div>
                               ) : (
-                                <div className="w-5 h-5 rounded-full border-2 border-slate-400 bg-white hover:border-purple-600 transition-colors" />
+                                <div className="w-5 h-5 rounded-full border-2 border-slate-400 bg-white" />
                               )}
                             </div>
                             <span className={`text-xs font-bold ${r.deliverCompleted ? 'text-emerald-700' : 'text-slate-700'}`}>
@@ -1247,8 +1413,10 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                         <td className="py-4 px-4 border-r border-slate-200 align-top">
                           <div 
                             onClick={() => handleToggleCollect(r.id)}
-                            className="flex items-center gap-2 cursor-pointer p-1.5 rounded-lg hover:bg-slate-100/70 transition-colors"
-                            title="Click to toggle collection status"
+                            className={`flex items-center gap-2 p-1.5 rounded-lg transition-colors ${
+                              isAdmin ? 'cursor-pointer hover:bg-slate-100/70' : 'cursor-default'
+                            }`}
+                            title={isAdmin ? "Click to toggle collection status (Admin)" : "Collect Date"}
                           >
                             <div className="shrink-0">
                               {r.collectCompleted ? (
@@ -1256,7 +1424,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                                   <Check className="w-3.5 h-3.5 stroke-[3]" />
                                 </div>
                               ) : (
-                                <div className="w-5 h-5 rounded-full border-2 border-slate-400 bg-white hover:border-emerald-600 transition-colors" />
+                                <div className="w-5 h-5 rounded-full border-2 border-slate-400 bg-white" />
                               )}
                             </div>
                             <span className={`text-xs font-bold ${r.collectCompleted ? 'text-emerald-700' : 'text-slate-700'}`}>
@@ -1273,7 +1441,10 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                                 <div 
                                   key={item.id} 
                                   onClick={() => handleToggleCheckItem(r.id, item.id)}
-                                  className="flex items-start gap-2 p-1 rounded-md hover:bg-slate-100 cursor-pointer transition-colors"
+                                  className={`flex items-start gap-2 p-1 rounded-md transition-colors ${
+                                    isAdmin ? 'hover:bg-slate-100 cursor-pointer' : 'cursor-default'
+                                  }`}
+                                  title={isAdmin ? "Click to toggle QA check item (Admin)" : "QA/QC Item"}
                                 >
                                   <div className="shrink-0 mt-0.5">
                                     {item.completed ? (
@@ -1315,8 +1486,10 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                         <td className="py-4 px-4 border-r border-slate-200 align-top">
                           <div 
                             onClick={() => handleToggleBackup(r.id)}
-                            className="flex items-center gap-2 cursor-pointer p-1.5 rounded-lg hover:bg-slate-100/70 transition-colors"
-                            title="Click to toggle backup status"
+                            className={`flex items-center gap-2 p-1.5 rounded-lg transition-colors ${
+                              isAdmin ? 'cursor-pointer hover:bg-slate-100/70' : 'cursor-default'
+                            }`}
+                            title={isAdmin ? "Click to toggle backup status (Admin)" : "Backup Date"}
                           >
                             <div className="shrink-0">
                               {r.backupCompleted ? (
@@ -1324,7 +1497,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                                   <Check className="w-3.5 h-3.5 stroke-[3]" />
                                 </div>
                               ) : (
-                                <div className="w-5 h-5 rounded-full border-2 border-slate-400 bg-white hover:border-emerald-600 transition-colors" />
+                                <div className="w-5 h-5 rounded-full border-2 border-slate-400 bg-white" />
                               )}
                             </div>
                             <span className={`text-xs font-bold ${r.backupCompleted ? 'text-emerald-700' : 'text-slate-500'}`}>
@@ -1340,7 +1513,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                               type="button"
                               onClick={() => handleOpenEditRound(r)}
                               className="p-1.5 rounded text-slate-400 hover:text-[#9E1B32] hover:bg-red-50 transition-colors cursor-pointer"
-                              title="Edit this round"
+                              title="Edit all sections of this round"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
                             </button>
@@ -1371,7 +1544,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                   <td className="py-4 px-4">
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-300">Total Completed:</span>
+                        <span className="text-slate-300">Total Samples Done:</span>
                         <span className="font-mono font-black text-emerald-400">
                           {stats.grandFinished.toLocaleString()} / {stats.grandAllocated.toLocaleString()}
                         </span>
@@ -1398,7 +1571,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
             <div className="flex items-center gap-1.5">
               <Info className="w-4 h-4 text-slate-400" />
               <span>
-                Standard ERSL Reservoir Protocol Table extracted from active lab document. Click any indicator to update status.
+                Standard ERSL Reservoir Protocol Table. Member sample completions are persistent and saved in real time.
               </span>
             </div>
             <div className="font-semibold text-slate-700">
@@ -1416,7 +1589,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               Team Member Workload Matrix Grid
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Cross-round matrix showing allocation counts for Saravanan, Jihee, Tantu, Anindya, and Dan.
+              Click any cell to edit completed samples and progress.
             </p>
           </div>
 
@@ -1456,25 +1629,28 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                         );
                       }
 
+                      const is100Pct = alloc.completed || (alloc.numericCount > 0 && alloc.finishedCount >= alloc.numericCount);
+
                       return (
                         <td 
                           key={name}
-                          onClick={() => handleToggleMemberCompletion(r.id, alloc.memberName)}
+                          onClick={() => handleOpenSampleModal(r, alloc)}
                           className={`py-3.5 px-4 border-l border-slate-200 cursor-pointer transition-colors ${
-                            alloc.completed ? 'bg-purple-50/40 hover:bg-purple-50' : 'hover:bg-slate-100/50'
+                            is100Pct ? 'bg-purple-50/40 hover:bg-purple-50' : 'hover:bg-slate-100/50'
                           }`}
                         >
                           <div className="flex items-center gap-2">
-                            {alloc.completed ? (
+                            {is100Pct ? (
                               <div className="w-4 h-4 rounded-full bg-purple-700 flex items-center justify-center text-white text-[10px]">
                                 <Check className="w-3 h-3 stroke-[3]" />
                               </div>
                             ) : (
                               <div className="w-4 h-4 rounded-full border border-slate-400 bg-white" />
                             )}
-                            <span className="font-mono font-bold text-slate-800">
-                              {alloc.countText}
-                            </span>
+                            <div className="font-mono text-xs">
+                              <span className="font-bold text-slate-900">{alloc.finishedCount}</span>
+                              <span className="text-slate-400">/{alloc.countText}</span>
+                            </div>
                           </div>
                         </td>
                       );
@@ -1492,7 +1668,164 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       )}
 
       {/* =========================================================================
-          MODAL: EDIT ROUND DETAILS (ADMIN)
+          MODAL: MEMBER SAMPLE & PROCESS COMPLETION (Accessible in Member & Admin Mode)
+          ========================================================================= */}
+      {sampleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-gradient-to-r from-slate-900 to-[#9E1B32] p-5 text-white flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-cyan-300">
+                  Member Sample Progress
+                </span>
+                <h3 className="text-base font-extrabold text-white">
+                  Round {sampleModal.roundNum} — {sampleModal.memberName}
+                </h3>
+                <p className="text-xs text-slate-200 mt-0.5">
+                  {sampleModal.basinName}
+                </p>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setSampleModal(null)}
+                className="text-white/80 hover:text-white p-1 rounded-full transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSampleModal} className="p-6 space-y-4 text-xs">
+              
+              {/* Quick increment buttons */}
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
+                <label className="block text-xs font-bold text-slate-700">
+                  Quick Add Completed Samples:
+                </label>
+                <div className="flex items-center gap-2">
+                  {[5, 10, 20].map(inc => (
+                    <button
+                      key={inc}
+                      type="button"
+                      onClick={() => setSampleModal(prev => prev ? {
+                        ...prev,
+                        finishedCount: Math.min(prev.numericCount, prev.finishedCount + inc)
+                      } : null)}
+                      className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 hover:border-[#9E1B32] hover:text-[#9E1B32] font-bold text-xs transition-all shadow-2xs cursor-pointer"
+                    >
+                      +{inc}
+                    </button>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={() => setSampleModal(prev => prev ? {
+                      ...prev,
+                      finishedCount: prev.numericCount,
+                      completed: true
+                    } : null)}
+                    className="ml-auto px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 font-bold text-xs transition-all cursor-pointer"
+                  >
+                    100% Done
+                  </button>
+                </div>
+              </div>
+
+              {/* Finished Count Input & Target */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Samples Completed:
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={sampleModal.finishedCount}
+                    onChange={(e) => setSampleModal({ ...sampleModal, finishedCount: parseInt(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#9E1B32]/30 focus:border-[#9E1B32]"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Number completed so far</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Target Assigned:
+                  </label>
+                  <input
+                    type="number"
+                    readOnly={!isAdmin}
+                    value={sampleModal.numericCount}
+                    onChange={(e) => {
+                      if (isAdmin) {
+                        setSampleModal({ ...sampleModal, numericCount: parseInt(e.target.value) || 0 });
+                      }
+                    }}
+                    className={`w-full px-3 py-2 rounded-lg text-sm font-bold border ${
+                      isAdmin 
+                        ? 'bg-white border-slate-300 text-slate-900' 
+                        : 'bg-slate-100 border-slate-200 text-slate-600 cursor-not-allowed'
+                    }`}
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    {isAdmin ? 'Editable by Admin' : 'Allocated Target'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Process Completion Checkbox */}
+              <div className="bg-purple-50 p-3.5 rounded-xl border border-purple-200 flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-purple-950 block">Mark Process Completed</span>
+                  <span className="text-[10px] text-purple-700">Flag this round's samples as 100% verified & completed</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={sampleModal.completed || sampleModal.finishedCount >= sampleModal.numericCount}
+                  onChange={(e) => setSampleModal({
+                    ...sampleModal,
+                    completed: e.target.checked,
+                    finishedCount: e.target.checked && sampleModal.finishedCount < sampleModal.numericCount ? sampleModal.numericCount : sampleModal.finishedCount
+                  })}
+                  className="w-5 h-5 text-purple-700 rounded border-slate-300 focus:ring-purple-600 cursor-pointer"
+                />
+              </div>
+
+              {/* Progress Notes */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Progress Notes (Optional):
+                </label>
+                <textarea
+                  rows={2}
+                  value={sampleModal.notes}
+                  onChange={(e) => setSampleModal({ ...sampleModal, notes: e.target.value })}
+                  placeholder="e.g. 20 SAR high-resolution tiles verified..."
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setSampleModal(null)}
+                  className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-lg bg-[#9E1B32] hover:bg-red-800 text-white text-xs font-bold shadow-md cursor-pointer"
+                >
+                  Save Sample Progress
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL: EDIT ROUND DETAILS (ADMIN MODE - FULL EDIT FOR ALL SECTIONS)
           ========================================================================= */}
       {isEditModalOpen && editingRound && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -1500,7 +1833,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
             <div className="bg-slate-900 p-5 text-white flex items-center justify-between shrink-0">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-wider text-[#9E1B32]">
-                  ERSL Protocol Administration
+                  ERSL Protocol Administration (Full Edit)
                 </span>
                 <h3 className="text-base font-extrabold text-white">
                   Edit Round {editingRound.round}
@@ -1571,24 +1904,40 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               {/* Member Allocations */}
               <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2.5">
                 <label className="block text-xs font-bold text-slate-800">
-                  Team Member Allocations:
+                  Team Member Allocations & Samples:
                 </label>
                 <div className="space-y-2">
                   {editingRound.allocations.map((a, idx) => (
                     <div key={idx} className="flex items-center gap-3">
                       <span className="w-24 font-bold text-slate-700">{a.memberName}:</span>
-                      <input
-                        type="text"
-                        value={a.countText}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          const num = parseInt(val) || 0;
-                          const nextAlloc = [...editingRound.allocations];
-                          nextAlloc[idx] = { ...a, countText: val, numericCount: num };
-                          setEditingRound({ ...editingRound, allocations: nextAlloc });
-                        }}
-                        className="w-36 px-2 py-1 bg-white border border-slate-300 rounded text-xs font-mono font-bold"
-                      />
+                      <div className="flex items-center gap-1.5 flex-1">
+                        <span className="text-[10px] text-slate-500">Target:</span>
+                        <input
+                          type="text"
+                          value={a.countText}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const num = parseInt(val) || 0;
+                            const nextAlloc = [...editingRound.allocations];
+                            nextAlloc[idx] = { ...a, countText: val, numericCount: num };
+                            setEditingRound({ ...editingRound, allocations: nextAlloc });
+                          }}
+                          className="w-24 px-2 py-1 bg-white border border-slate-300 rounded text-xs font-mono font-bold"
+                        />
+                        <span className="text-[10px] text-slate-500 ml-2">Completed:</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={a.finishedCount}
+                          onChange={(e) => {
+                            const num = parseInt(e.target.value) || 0;
+                            const nextAlloc = [...editingRound.allocations];
+                            nextAlloc[idx] = { ...a, finishedCount: num, completed: num >= a.numericCount };
+                            setEditingRound({ ...editingRound, allocations: nextAlloc });
+                          }}
+                          className="w-20 px-2 py-1 bg-white border border-slate-300 rounded text-xs font-mono font-bold"
+                        />
+                      </div>
                       <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
                         <input
                           type="checkbox"
@@ -1600,7 +1949,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                           }}
                           className="rounded text-purple-600"
                         />
-                        <span>Completed</span>
+                        <span>Done</span>
                       </label>
                     </div>
                   ))}
@@ -1666,7 +2015,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       )}
 
       {/* =========================================================================
-          MODAL: ADD NEW ROUND (ADMIN)
+          MODAL: ADD NEW ROUND (ADMIN MODE)
           ========================================================================= */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -1884,7 +2233,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                   </p>
                   <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.2 rounded-full mt-1">
                     <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                    {congratsModal.count.toLocaleString()} Reservoirs Done
+                    {congratsModal.count.toLocaleString()} Samples Verified Done
                   </span>
                 </div>
               </div>
