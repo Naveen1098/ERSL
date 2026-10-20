@@ -37,7 +37,9 @@ import {
   Database,
   ArrowRight,
   UserCheck,
-  Sliders
+  Sliders,
+  CheckCheck,
+  Hourglass
 } from 'lucide-react';
 
 export interface MemberAllocation {
@@ -47,6 +49,9 @@ export interface MemberAllocation {
   numericCount: number;
   finishedCount: number;
   completed: boolean;
+  danVerified: boolean;
+  verifiedAt?: string;
+  verifiedBy?: string;
   notes?: string;
 }
 
@@ -80,7 +85,7 @@ export interface RoundRow {
 
 const STORAGE_KEY = 'ersl_reservoir_project_v2';
 
-// Real baseline data extracted directly from Reservoir_tabel_details.docx (Tables 1 & 2)
+// Baseline data extracted directly from Reservoir_tabel_details.docx
 export const getInitialRoundData = (): RoundRow[] => [
   {
     id: 'round-1',
@@ -91,11 +96,11 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Finish: 168',
     cumulativeFinished: 168,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '40', numericCount: 40, finishedCount: 40, completed: true },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '18', numericCount: 18, finishedCount: 18, completed: true },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '9', numericCount: 9, finishedCount: 9, completed: true },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '9', numericCount: 9, finishedCount: 9, completed: true },
-      { memberId: 'person-tian', memberName: 'Dan', countText: '16', numericCount: 16, finishedCount: 16, completed: true }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '40', numericCount: 40, finishedCount: 40, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian' },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '18', numericCount: 18, finishedCount: 18, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian' },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '9', numericCount: 9, finishedCount: 9, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian' },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '9', numericCount: 9, finishedCount: 9, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian' },
+      { memberId: 'person-tian', memberName: 'Dan', countText: '16', numericCount: 16, finishedCount: 16, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian' }
     ],
     deliverDateText: '✓ -',
     deliverCompleted: true,
@@ -106,7 +111,7 @@ export const getInitialRoundData = (): RoundRow[] => [
     checkItems: [],
     backupDateText: '✓ -',
     backupCompleted: true,
-    notes: 'Colorado River Basin (CRB) baseline run. 100% completed, QA checked and backed up.'
+    notes: 'Colorado River Basin (CRB) baseline run. 100% completed, QA checked by Dr. Dan Tian and backed up.'
   },
   {
     id: 'round-2',
@@ -117,11 +122,11 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Finish: 168+210= 378',
     cumulativeFinished: 378,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '117', numericCount: 117, finishedCount: 117, completed: true },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '47', numericCount: 47, finishedCount: 47, completed: true },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '24', numericCount: 24, finishedCount: 24, completed: true },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '23', numericCount: 23, finishedCount: 23, completed: true },
-      { memberId: 'person-tian', memberName: 'Dan', countText: '35', numericCount: 35, finishedCount: 35, completed: true }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '117', numericCount: 117, finishedCount: 117, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian' },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '47', numericCount: 47, finishedCount: 47, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian' },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '24', numericCount: 24, finishedCount: 24, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian' },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '23', numericCount: 23, finishedCount: 23, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian' },
+      { memberId: 'person-tian', memberName: 'Dan', countText: '35', numericCount: 35, finishedCount: 35, completed: true, danVerified: true, verifiedBy: 'Dr. Dan Tian' }
     ],
     deliverDateText: '✓ -',
     deliverCompleted: true,
@@ -137,7 +142,7 @@ export const getInitialRoundData = (): RoundRow[] => [
     ],
     backupDateText: 'Pending',
     backupCompleted: false,
-    notes: 'South Atlantic Gulf Basin (SAGB) Below 1km². Polygon verification underway.'
+    notes: 'South Atlantic Gulf Basin (SAGB) Below 1km². Quality verified by Dr. Dan Tian.'
   },
   {
     id: 'round-3',
@@ -148,10 +153,10 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Finish: 378+35+132= 545',
     cumulativeFinished: 545,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '94', numericCount: 94, finishedCount: 0, completed: false },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '35 (small)', numericCount: 35, finishedCount: 0, completed: false },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '19', numericCount: 19, finishedCount: 0, completed: false },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '19', numericCount: 19, finishedCount: 0, completed: false }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '94', numericCount: 94, finishedCount: 0, completed: false, danVerified: false },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '35 (small)', numericCount: 35, finishedCount: 0, completed: false, danVerified: false },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '19', numericCount: 19, finishedCount: 0, completed: false, danVerified: false },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '19', numericCount: 19, finishedCount: 0, completed: false, danVerified: false }
     ],
     deliverDateText: '10/7 Wed',
     deliverCompleted: true,
@@ -164,7 +169,7 @@ export const getInitialRoundData = (): RoundRow[] => [
     ],
     backupDateText: 'Pending',
     backupCompleted: false,
-    notes: 'Active Sprint: SAGB small & large water bodies under optical/SAR processing.'
+    notes: 'Active Sprint: SAGB small & large water bodies. Members updating samples; pending Dr. Dan Tian quality check.'
   },
   {
     id: 'round-4',
@@ -175,11 +180,11 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Target: 545+216= 761',
     cumulativeFinished: 761,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '65+31=96', numericCount: 96, finishedCount: 0, completed: false },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false },
-      { memberId: 'person-tian', memberName: 'Dan', countText: '40', numericCount: 40, finishedCount: 0, completed: false }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '65+31=96', numericCount: 96, finishedCount: 0, completed: false, danVerified: false },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false },
+      { memberId: 'person-tian', memberName: 'Dan', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false }
     ],
     deliverDateText: '10/16 Fri',
     deliverCompleted: false,
@@ -201,11 +206,11 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Target: 761+217= 978',
     cumulativeFinished: 978,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '43+54=97', numericCount: 97, finishedCount: 0, completed: false },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false },
-      { memberId: 'person-tian', memberName: 'Dan', countText: '40', numericCount: 40, finishedCount: 0, completed: false }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '43+54=97', numericCount: 97, finishedCount: 0, completed: false, danVerified: false },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false },
+      { memberId: 'person-tian', memberName: 'Dan', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false }
     ],
     deliverDateText: '10/23 Fri',
     deliverCompleted: false,
@@ -227,11 +232,11 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Target: 978+206= 1,184',
     cumulativeFinished: 1184,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '100', numericCount: 100, finishedCount: 0, completed: false },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false },
-      { memberId: 'person-tian', memberName: 'Dan', countText: '40', numericCount: 40, finishedCount: 0, completed: false }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '100', numericCount: 100, finishedCount: 0, completed: false, danVerified: false },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false },
+      { memberId: 'person-tian', memberName: 'Dan', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false }
     ],
     deliverDateText: '10/30 Fri',
     deliverCompleted: false,
@@ -253,10 +258,10 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Target: 1,184+180= 1,364',
     cumulativeFinished: 1364,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '100', numericCount: 100, finishedCount: 0, completed: false },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '100', numericCount: 100, finishedCount: 0, completed: false, danVerified: false },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false }
     ],
     deliverDateText: '11/6 Fri',
     deliverCompleted: false,
@@ -278,10 +283,10 @@ export const getInitialRoundData = (): RoundRow[] => [
     finishFormula: 'Target: 1,364+180= 1,544',
     cumulativeFinished: 1544,
     allocations: [
-      { memberId: 'person-raju', memberName: 'Saravanan', countText: '100', numericCount: 100, finishedCount: 0, completed: false },
-      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false },
-      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false },
-      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false }
+      { memberId: 'person-raju', memberName: 'Saravanan', countText: '100', numericCount: 100, finishedCount: 0, completed: false, danVerified: false },
+      { memberId: 'person-seo', memberName: 'Jihee', countText: '40', numericCount: 40, finishedCount: 0, completed: false, danVerified: false },
+      { memberId: 'person-mandal', memberName: 'Tantu', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false },
+      { memberId: 'person-palaparthi', memberName: 'Anindya', countText: '20', numericCount: 20, finishedCount: 0, completed: false, danVerified: false }
     ],
     deliverDateText: '11/13 Fri',
     deliverCompleted: false,
@@ -301,7 +306,8 @@ const sanitizeRounds = (data: any[]): RoundRow[] => {
     ...r,
     allocations: (r.allocations || []).map((a: any) => ({
       ...a,
-      finishedCount: typeof a.finishedCount === 'number' ? a.finishedCount : (a.completed ? a.numericCount : 0)
+      finishedCount: typeof a.finishedCount === 'number' ? a.finishedCount : (a.completed ? a.numericCount : 0),
+      danVerified: typeof a.danVerified === 'boolean' ? a.danVerified : (r.round <= 2 ? true : false)
     }))
   }));
 };
@@ -310,7 +316,7 @@ const CONGRATULATION_TEMPLATES = [
   (name: string, round: string | number, count: number) => ({
     headline: "🎉 Outstanding Milestone Reached!",
     subhead: "Precision & Dedication at its Finest",
-    body: `Incredible work, ${name}! You have successfully completed all ${count.toLocaleString()} assigned samples in Round ${round}. Dr. Hongxing Liu and the ERSL research team celebrate your dedication!`
+    body: `Incredible work, ${name}! You have successfully completed your assigned ${count.toLocaleString()} samples in Round ${round}. Dr. Hongxing Liu and Dr. Dan Tian applaud your high accuracy and dedication!`
   }),
   (name: string, round: string | number, count: number) => ({
     headline: "🌟 Phenomenal Achievement!",
@@ -326,17 +332,23 @@ const CONGRATULATION_TEMPLATES = [
 
 export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser }) => {
   const userEmail = (currentUser?.email || '').toLowerCase().trim();
+  const userName = (currentUser?.name || '').toLowerCase().trim();
   const isEmailAdmin = ADMIN_EMAILS.some(e => e.toLowerCase().trim() === userEmail);
   const isRoleAdmin = currentUser?.role === 'Admin' || currentUser?.role?.toLowerCase() === 'admin';
+  
+  // Dr. Dan Tian is the primary Quality Inspector
+  const isDanTian = userEmail.includes('tian') || userName.includes('dan');
 
-  // Toggle for Admin Edit Mode (allows switching between Admin Mode and Member Mode)
+  // Toggle for Admin Edit Mode
   const [adminMode, setAdminMode] = useState<boolean>(() => {
     const saved = localStorage.getItem('ersl_reservoir_admin_mode');
     if (saved !== null) return saved === 'true';
-    return false; // Default to member mode so members experience sample progress editing
+    return false; // Member mode by default so members experience sample progress updates
   });
 
   const isAdmin = isEmailAdmin || isRoleAdmin || adminMode;
+  // Dan or Admin can perform quality checks
+  const canVerifyQuality = isAdmin || isDanTian;
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const showToast = (msg: string) => {
@@ -346,6 +358,12 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
 
   // View Mode: 'protocol' (Table 2 Format Table) vs 'matrix' (Member Columns Grid)
   const [viewMode, setViewMode] = useState<'protocol' | 'matrix'>('protocol');
+
+  // Team Progress Display Tab: 'combined' (Both Round & Overall) vs 'round' vs 'overall'
+  const [progressTab, setProgressTab] = useState<'combined' | 'round' | 'overall'>('combined');
+  
+  // Active / Selected Round for current week/round progress view (defaults to Round 3, the active sprint)
+  const [activeSprintRound, setActiveSprintRound] = useState<number>(3);
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -423,40 +441,39 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     return map;
   }, []);
 
-  // Compute Overall Stats
-  const stats = useMemo(() => {
+  // Compute Overall Stats & Per-Round Stats
+  const { stats, currentRoundMetrics } = useMemo(() => {
     let grandAllocated = 0;
     let grandFinished = 0;
-    let completedRounds = 0;
-    let activeRounds = 0;
+    let qualityVerifiedCount = 0;
+    let pendingDanQcCount = 0;
 
     const memberProgress: Record<string, {
       name: string;
       assigned: number;
       finished: number;
+      qualityVerified: number;
+      pendingQc: number;
       tasksCount: number;
       completedTasks: number;
     }> = {
-      'Saravanan': { name: 'Saravanan Raju', assigned: 0, finished: 0, tasksCount: 0, completedTasks: 0 },
-      'Jihee': { name: 'Jihee Seo', assigned: 0, finished: 0, tasksCount: 0, completedTasks: 0 },
-      'Tantu': { name: 'Tantu Mandal', assigned: 0, finished: 0, tasksCount: 0, completedTasks: 0 },
-      'Anindya': { name: 'Anindya Palaparthi', assigned: 0, finished: 0, tasksCount: 0, completedTasks: 0 },
-      'Dan': { name: 'Dr. Dan Tian', assigned: 0, finished: 0, tasksCount: 0, completedTasks: 0 }
+      'Saravanan': { name: 'Saravanan Raju', assigned: 0, finished: 0, qualityVerified: 0, pendingQc: 0, tasksCount: 0, completedTasks: 0 },
+      'Jihee': { name: 'Jihee Seo', assigned: 0, finished: 0, qualityVerified: 0, pendingQc: 0, tasksCount: 0, completedTasks: 0 },
+      'Tantu': { name: 'Tantu Mandal', assigned: 0, finished: 0, qualityVerified: 0, pendingQc: 0, tasksCount: 0, completedTasks: 0 },
+      'Anindya': { name: 'Anindya Palaparthi', assigned: 0, finished: 0, qualityVerified: 0, pendingQc: 0, tasksCount: 0, completedTasks: 0 },
+      'Dan': { name: 'Dr. Dan Tian', assigned: 0, finished: 0, qualityVerified: 0, pendingQc: 0, tasksCount: 0, completedTasks: 0 }
     };
 
     rounds.forEach(r => {
       grandAllocated += r.basinNumericTotal || 0;
-      
-      const isRoundAllCompleted = r.allocations.length > 0 && r.allocations.every(a => a.completed);
-      if (isRoundAllCompleted) {
-        completedRounds++;
-      } else {
-        activeRounds++;
-      }
 
-      // Sum individual member completed counts
       r.allocations.forEach(a => {
         grandFinished += a.finishedCount || 0;
+        if (a.danVerified) {
+          qualityVerifiedCount += a.finishedCount || 0;
+        } else if (a.finishedCount >= a.numericCount && a.numericCount > 0) {
+          pendingDanQcCount++;
+        }
 
         const key = a.memberName.split(' ')[0];
         if (!memberProgress[key]) {
@@ -464,6 +481,8 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
             name: a.memberName,
             assigned: 0,
             finished: 0,
+            qualityVerified: 0,
+            pendingQc: 0,
             tasksCount: 0,
             completedTasks: 0
           };
@@ -471,23 +490,55 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
         memberProgress[key].assigned += a.numericCount || 0;
         memberProgress[key].finished += a.finishedCount || 0;
         memberProgress[key].tasksCount++;
-        if (a.completed) {
+        if (a.danVerified) {
+          memberProgress[key].qualityVerified += a.finishedCount || 0;
           memberProgress[key].completedTasks++;
+        } else if (a.finishedCount >= a.numericCount && a.numericCount > 0) {
+          memberProgress[key].pendingQc++;
         }
       });
     });
 
+    // Metrics for the currently selected active sprint / round
+    const targetRoundObj = rounds.find(r => Number(r.round) === Number(activeSprintRound)) || rounds[2];
+    const roundMemberMetrics: Record<string, {
+      assigned: number;
+      finished: number;
+      completed: boolean;
+      danVerified: boolean;
+    }> = {};
+
+    if (targetRoundObj) {
+      targetRoundObj.allocations.forEach(a => {
+        const key = a.memberName.split(' ')[0];
+        roundMemberMetrics[key] = {
+          assigned: a.numericCount || 0,
+          finished: a.finishedCount || 0,
+          completed: a.completed,
+          danVerified: a.danVerified
+        };
+      });
+    }
+
     const completionRate = grandAllocated > 0 ? Math.round((grandFinished / grandAllocated) * 100) : 0;
+    const verifiedRate = grandAllocated > 0 ? Math.round((qualityVerifiedCount / grandAllocated) * 100) : 0;
 
     return {
-      grandAllocated,
-      grandFinished,
-      completedRounds,
-      activeRounds,
-      completionRate,
-      memberProgress
+      stats: {
+        grandAllocated,
+        grandFinished,
+        qualityVerifiedCount,
+        pendingDanQcCount,
+        completionRate,
+        verifiedRate,
+        memberProgress
+      },
+      currentRoundMetrics: {
+        roundObj: targetRoundObj,
+        roundMemberMetrics
+      }
     };
-  }, [rounds]);
+  }, [rounds, activeSprintRound]);
 
   // Filtered rows
   const filteredRounds = useMemo(() => {
@@ -522,6 +573,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     numericCount: number;
     finishedCount: number;
     completed: boolean;
+    danVerified: boolean;
     notes?: string;
   } | null>(null);
 
@@ -535,6 +587,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       numericCount: a.numericCount,
       finishedCount: a.finishedCount,
       completed: a.completed,
+      danVerified: a.danVerified,
       notes: a.notes || ''
     });
   };
@@ -558,6 +611,8 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               ...a,
               finishedCount: Math.max(0, sampleModal.finishedCount),
               completed: isDone,
+              danVerified: sampleModal.danVerified,
+              verifiedBy: sampleModal.danVerified ? (a.verifiedBy || 'Dr. Dan Tian') : undefined,
               notes: sampleModal.notes
             };
           }
@@ -573,11 +628,41 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     setSampleModal(null);
     showToast(`Updated sample progress for ${memberName} in Round ${roundNum}!`);
 
+    if (isNewlyCompleted && !sampleModal.danVerified) {
+      showToast(`${memberName} marked finished! Staged for Dr. Dan Tian's Quality Check.`);
+    }
+
     if (isNewlyCompleted) {
       setTimeout(() => {
         triggerCongrats(memberName, roundNum, finishedCount);
       }, 250);
     }
+  };
+
+  // Dan's 1-Click Quality Sign-Off Function
+  const handleDanQualitySignOff = (roundId: string, memberName: string) => {
+    setRounds(prev => prev.map(r => {
+      if (r.id !== roundId) return r;
+      return {
+        ...r,
+        allocations: r.allocations.map(a => {
+          if (a.memberName.toLowerCase() === memberName.toLowerCase()) {
+            const nextVal = !a.danVerified;
+            return {
+              ...a,
+              danVerified: nextVal,
+              completed: nextVal ? true : a.completed,
+              finishedCount: nextVal ? a.numericCount : a.finishedCount,
+              verifiedBy: nextVal ? 'Dr. Dan Tian' : undefined,
+              verifiedAt: nextVal ? new Date().toISOString() : undefined
+            };
+          }
+          return a;
+        })
+      };
+    }));
+
+    showToast(`Quality verification toggled by Dr. Dan Tian for ${memberName}!`);
   };
 
   // Toggle member allocation checkmark directly
@@ -753,11 +838,11 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     const subBasinsList = newRoundForm.subBasinsText.split('\n').map(s => s.trim()).filter(Boolean);
 
     const allocations: MemberAllocation[] = [];
-    if (newRoundForm.saravananCount) allocations.push({ memberId: 'person-raju', memberName: 'Saravanan', countText: newRoundForm.saravananCount, numericCount: parseInt(newRoundForm.saravananCount) || 0, finishedCount: 0, completed: false });
-    if (newRoundForm.jiheeCount) allocations.push({ memberId: 'person-seo', memberName: 'Jihee', countText: newRoundForm.jiheeCount, numericCount: parseInt(newRoundForm.jiheeCount) || 0, finishedCount: 0, completed: false });
-    if (newRoundForm.tantuCount) allocations.push({ memberId: 'person-mandal', memberName: 'Tantu', countText: newRoundForm.tantuCount, numericCount: parseInt(newRoundForm.tantuCount) || 0, finishedCount: 0, completed: false });
-    if (newRoundForm.anindyaCount) allocations.push({ memberId: 'person-palaparthi', memberName: 'Anindya', countText: newRoundForm.anindyaCount, numericCount: parseInt(newRoundForm.anindyaCount) || 0, finishedCount: 0, completed: false });
-    if (newRoundForm.danCount) allocations.push({ memberId: 'person-tian', memberName: 'Dan', countText: newRoundForm.danCount, numericCount: parseInt(newRoundForm.danCount) || 0, finishedCount: 0, completed: false });
+    if (newRoundForm.saravananCount) allocations.push({ memberId: 'person-raju', memberName: 'Saravanan', countText: newRoundForm.saravananCount, numericCount: parseInt(newRoundForm.saravananCount) || 0, finishedCount: 0, completed: false, danVerified: false });
+    if (newRoundForm.jiheeCount) allocations.push({ memberId: 'person-seo', memberName: 'Jihee', countText: newRoundForm.jiheeCount, numericCount: parseInt(newRoundForm.jiheeCount) || 0, finishedCount: 0, completed: false, danVerified: false });
+    if (newRoundForm.tantuCount) allocations.push({ memberId: 'person-mandal', memberName: 'Tantu', countText: newRoundForm.tantuCount, numericCount: parseInt(newRoundForm.tantuCount) || 0, finishedCount: 0, completed: false, danVerified: false });
+    if (newRoundForm.anindyaCount) allocations.push({ memberId: 'person-palaparthi', memberName: 'Anindya', countText: newRoundForm.anindyaCount, numericCount: parseInt(newRoundForm.anindyaCount) || 0, finishedCount: 0, completed: false, danVerified: false });
+    if (newRoundForm.danCount) allocations.push({ memberId: 'person-tian', memberName: 'Dan', countText: newRoundForm.danCount, numericCount: parseInt(newRoundForm.danCount) || 0, finishedCount: 0, completed: false, danVerified: false });
 
     const newRow: RoundRow = {
       id: newId,
@@ -787,18 +872,19 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
 
   // Export CSV
   const handleExportCSV = () => {
-    const headers = ['Round', 'Basin Details', 'Cumulative Finish', 'Member Allocations', 'Deliver Date', 'Deliver Done', 'Collect Date', 'Collect Done', 'Check Date & QA Notes', 'Backup Date'];
+    const headers = ['Round', 'Basin Details', 'Cumulative Finish', 'Member Allocations', 'Deliver Date', 'Deliver Done', 'Collect Date', 'Collect Done', 'Check Date & QA Notes', 'Dan Quality Checked', 'Backup Date'];
     
     const rows = rounds.map(r => {
       const basinStr = `"${r.basinTotalText} | ${r.subBasins.join('; ')}"`;
       const finishStr = `"${r.finishFormula || r.cumulativeFinished}"`;
-      const allocStr = `"${r.allocations.map(a => `${a.memberName}: ${a.finishedCount}/${a.numericCount} [${a.completed ? 'DONE' : 'IN_PROGRESS'}]`).join(', ')}"`;
+      const allocStr = `"${r.allocations.map(a => `${a.memberName}: ${a.finishedCount}/${a.numericCount} [${a.danVerified ? 'QC_VERIFIED' : a.completed ? 'PENDING_QC' : 'WORKING'}]`).join(', ')}"`;
       const deliverDone = r.deliverCompleted ? 'Yes' : 'No';
       const collectDone = r.collectCompleted ? 'Yes' : 'No';
       const checkNotes = `"${r.checkDateText || ''} ${r.checkItems.map(i => `${i.headerDate ? i.headerDate + ': ' : ''}${i.text}`).join('; ')}"`;
+      const danQcDone = r.allocations.every(a => a.danVerified) ? 'All Verified' : 'In Progress';
       const backupStr = r.backupCompleted ? 'Backed Up' : 'Pending';
 
-      return [r.round, basinStr, finishStr, allocStr, `"${r.deliverDateText}"`, deliverDone, `"${r.collectDateText}"`, collectDone, checkNotes, backupStr].join(',');
+      return [r.round, basinStr, finishStr, allocStr, `"${r.deliverDateText}"`, deliverDone, `"${r.collectDateText}"`, collectDone, checkNotes, danQcDone, backupStr].join(',');
     });
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
@@ -838,7 +924,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               </span>
               <span className="flex items-center gap-1 text-xs text-cyan-400 font-semibold">
                 <Sparkles className="w-3.5 h-3.5" />
-                PI: Dr. Hongxing Liu
+                PI: Dr. Hongxing Liu · QA Lead: Dr. Dan Tian
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-2.5">
@@ -846,13 +932,13 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               National Reservoir Delineation Protocol Table
             </h1>
             <p className="text-sm text-slate-300 max-w-3xl leading-relaxed">
-              Official ERSL sprint allocation matrix tracking round-by-round basin delivery, team member allocation counts, collection dates, and QA/QC verification status.
+              Official ERSL sprint allocation matrix tracking round-by-round basin delivery, team member allocation counts, collection dates, and Dr. Dan Tian's QA/QC quality verification.
             </p>
           </div>
 
           {/* Quick Action Buttons */}
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* Mode Toggle Switch: Admin Mode vs Member Mode */}
+            {/* Mode Toggle Switch */}
             <button
               type="button"
               onClick={() => {
@@ -871,12 +957,12 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               {isAdmin ? (
                 <>
                   <ShieldCheck className="w-4 h-4 text-emerald-200" />
-                  <span>Admin Mode: Full Edit (All Sections)</span>
+                  <span>Admin Mode: Full Edit</span>
                 </>
               ) : (
                 <>
                   <UserCheck className="w-4 h-4 text-indigo-200" />
-                  <span>Member Mode: Edit Samples & Progress</span>
+                  <span>Member Mode: Edit Samples</span>
                 </>
               )}
             </button>
@@ -925,28 +1011,31 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               />
             </div>
             <span className="text-[11px] text-cyan-400 font-bold mt-1.5 inline-block">
-              {stats.grandFinished.toLocaleString()} completed ({stats.completionRate}%)
+              {stats.grandFinished.toLocaleString()} samples finished ({stats.completionRate}%)
             </span>
           </div>
 
           <div className="bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-slate-700/60">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Completed Baseline</span>
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Dan's Quality Verified</span>
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
             </div>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl font-black text-white">
-                545
+              <span className="text-2xl font-black text-emerald-400">
+                {stats.qualityVerifiedCount.toLocaleString()}
               </span>
               <span className="text-xs text-slate-400 font-medium">
-                in Rounds 1–3
+                / {stats.grandAllocated.toLocaleString()}
               </span>
             </div>
-            <p className="text-[11px] text-slate-300 mt-2 font-medium">
-              CRB (168) + SAGB Below 1km² (210) + SAGB Large/Small (167)
-            </p>
-            <span className="text-[11px] text-emerald-400 font-bold mt-1 inline-block">
-              Archived & Persistent in Database
+            <div className="mt-2.5 w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+              <div 
+                className="bg-emerald-500 h-2 rounded-full transition-all duration-500" 
+                style={{ width: `${Math.min(100, stats.verifiedRate)}%` }}
+              />
+            </div>
+            <span className="text-[11px] text-emerald-400 font-bold mt-1.5 inline-block">
+              {stats.verifiedRate}% Certified by Dr. Dan Tian
             </span>
           </div>
 
@@ -957,151 +1046,282 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
             </div>
             <div className="mt-2 flex items-baseline gap-2">
               <span className="text-2xl font-black text-amber-300">
-                Round 3 & 4
+                Round {activeSprintRound}
+              </span>
+              <span className="text-xs text-slate-400">
+                ({currentRoundMetrics.roundObj?.basinTotalText || 'Sprint'})
               </span>
             </div>
             <div className="mt-2 text-[11px] text-slate-300">
-              Delivery: <strong>10/7 & 10/16</strong> · Collect: <strong>10/19 & 10/26</strong>
+              Delivery: <strong>{currentRoundMetrics.roundObj?.deliverDateText}</strong> · Collect: <strong>{currentRoundMetrics.roundObj?.collectDateText}</strong>
             </div>
             <span className="text-[11px] text-amber-400 font-semibold mt-1 inline-block">
-              Verification in Progress
+              Members Active in GIS Digitization
             </span>
           </div>
 
           <div className="bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-slate-700/60">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">QA/QC Checkpoints</span>
-              <ShieldCheck className="w-4 h-4 text-[#9E1B32]" />
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Awaiting Dan's Review</span>
+              <Hourglass className="w-4 h-4 text-purple-400" />
             </div>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl font-black text-white">
-                {rounds.reduce((acc, r) => acc + r.checkItems.filter(i => !i.completed).length, 0)}
+              <span className="text-2xl font-black text-purple-300">
+                {stats.pendingDanQcCount}
               </span>
               <span className="text-xs text-slate-400 font-medium">
-                QA tasks pending review
+                tasks ready for QC
               </span>
             </div>
             <p className="text-[11px] text-slate-300 mt-2 font-medium">
-              Includes Tantu 3094, Anin 22/23 & Ani 1302
+              Completed by members & queued for Dan
             </p>
-            <span className="text-[11px] text-rose-300 font-bold mt-1 inline-block">
-              Dr. Liu Verification Ready
+            <span className="text-[11px] text-purple-300 font-bold mt-1 inline-block">
+              {canVerifyQuality ? 'Click to inspect & sign off' : 'Pending Dan certification'}
             </span>
           </div>
 
         </div>
       </div>
 
-      {/* Mode Guidance Alert Banner */}
-      <div className={`p-4 rounded-xl border flex items-center justify-between gap-3 text-xs ${
-        isAdmin 
-          ? 'bg-emerald-50 border-emerald-200 text-emerald-900' 
-          : 'bg-indigo-50 border-indigo-200 text-indigo-900'
-      }`}>
-        <div className="flex items-center gap-2.5">
-          {isAdmin ? (
-            <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
-          ) : (
-            <Sliders className="w-5 h-5 text-indigo-600 shrink-0" />
-          )}
-          <div>
-            <span className="font-bold">
-              {isAdmin ? 'Admin Mode is Active:' : 'Member Mode is Active:'}
-            </span>{' '}
-            {isAdmin 
-              ? 'You have full editing permissions across all sections: Basin definitions, dates, check items, allocations, and new rounds.'
-              : 'You can update completed sample counts and toggle process completion in the "Number" column. Administrative structural settings remain protected.'
-            }
+      {/* Workflow Explanation Banner */}
+      <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 p-4 rounded-xl border border-indigo-200/80 text-xs text-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-indigo-700 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+            QA
+          </div>
+          <div className="space-y-0.5">
+            <span className="font-extrabold text-indigo-950 text-xs block">
+              Two-Stage Verification Pipeline: Member Delineation → Dr. Dan Tian Quality Certification
+            </span>
+            <p className="text-[11px] text-slate-600">
+              After a team member finishes their assigned samples, the status marks <strong>"Awaiting Dan's QC"</strong>. Only once <strong>Dr. Dan Tian</strong> verifies the delineation quality does it become <strong>"100% Quality Verified"</strong>.
+            </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            const next = !adminMode;
-            setAdminMode(next);
-            localStorage.setItem('ersl_reservoir_admin_mode', String(next));
-          }}
-          className={`px-3 py-1 rounded-lg font-bold text-[11px] shrink-0 border cursor-pointer ${
-            isAdmin
-              ? 'bg-white text-emerald-800 border-emerald-300 hover:bg-emerald-100'
-              : 'bg-white text-indigo-800 border-indigo-300 hover:bg-indigo-100'
-          }`}
-        >
-          Switch to {isAdmin ? 'Member Mode' : 'Admin Mode'}
-        </button>
+
+        {canVerifyQuality && (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-extrabold text-[11px] shrink-0">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+            Quality Inspector Privileges Active
+          </span>
+        )}
       </div>
 
       {/* =========================================================================
-          TEAM MEMBER PROCESSING VELOCITY CARDS (Saravanan, Jihee, Tantu, Anindya, Dan)
+          PROGRESS DASHBOARD: BOTH OVERALL PROGRESS & CURRENT WEEK / ROUND PROGRESS
           ========================================================================= */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-[#9E1B32]" />
-            <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-              Research Team Member Allocation & Progress Tally
-            </h2>
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 pb-3 gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-[#9E1B32]" />
+              <h2 className="text-sm font-black text-slate-900 uppercase tracking-wider">
+                Individual Researcher Progress Matrix: Sprint vs. Overall
+              </h2>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Track both current sprint (week/round) processing and overall lab accomplishments for each researcher.
+            </p>
           </div>
-          <span className="text-xs text-slate-500 font-medium">
-            Click on a researcher card to filter their assignments across all rounds
-          </span>
+
+          {/* Tab Switcher & Round Selector */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Round / Week Selector */}
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">
+              <Calendar className="w-3.5 h-3.5 text-slate-500" />
+              <span className="text-xs font-bold text-slate-600">Sprint Round:</span>
+              <select
+                value={activeSprintRound}
+                onChange={(e) => setActiveSprintRound(parseInt(e.target.value) || 3)}
+                className="text-xs font-extrabold text-[#9E1B32] bg-transparent focus:outline-none cursor-pointer"
+              >
+                {rounds.map(r => (
+                  <option key={r.id} value={r.round}>
+                    Round {r.round} {Number(r.round) === 3 ? '(Active Sprint)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* View Tabs */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setProgressTab('combined')}
+                className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
+                  progressTab === 'combined'
+                    ? 'bg-white text-[#9E1B32] shadow-xs font-black'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Dual View (Both)
+              </button>
+              <button
+                type="button"
+                onClick={() => setProgressTab('round')}
+                className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
+                  progressTab === 'round'
+                    ? 'bg-white text-[#9E1B32] shadow-xs font-black'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Round {activeSprintRound} Progress
+              </button>
+              <button
+                type="button"
+                onClick={() => setProgressTab('overall')}
+                className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
+                  progressTab === 'overall'
+                    ? 'bg-white text-[#9E1B32] shadow-xs font-black'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Overall Cumulative
+              </button>
+            </div>
+          </div>
         </div>
 
+        {/* Dynamic Researcher Progress Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5">
           {Object.entries(stats.memberProgress).map(([shortName, p]) => {
             const memberInfo = teamMembers.get(shortName.toLowerCase());
-            const pct = p.assigned > 0 ? Math.round((p.finished / p.assigned) * 100) : 0;
+            const roundMetric = currentRoundMetrics.roundMemberMetrics[shortName] || { assigned: 0, finished: 0, completed: false, danVerified: false };
+            const roundPct = roundMetric.assigned > 0 ? Math.round((roundMetric.finished / roundMetric.assigned) * 100) : 0;
+            const overallPct = p.assigned > 0 ? Math.round((p.finished / p.assigned) * 100) : 0;
             const isSelected = filterMember.toLowerCase() === shortName.toLowerCase();
+
+            // Quality status for the current sprint round
+            const isRoundDone = roundMetric.completed || (roundMetric.assigned > 0 && roundMetric.finished >= roundMetric.assigned);
+            const isRoundVerified = roundMetric.danVerified;
 
             return (
               <div 
                 key={shortName}
                 onClick={() => setFilterMember(isSelected ? 'all' : shortName)}
-                className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+                className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
                   isSelected 
                     ? 'border-[#9E1B32] ring-2 ring-[#9E1B32]/30 bg-red-50/60 shadow-md' 
                     : 'border-slate-200 bg-slate-50/60 hover:bg-white hover:border-slate-300 hover:shadow-xs'
                 }`}
-                title={isSelected ? "Click to clear filter and show all" : `Click to filter table for ${shortName}`}
+                title={isSelected ? "Click to clear filter" : `Click to filter schedule for ${shortName}`}
               >
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-full bg-[#9E1B32] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm overflow-hidden border border-red-300/40">
-                    {memberInfo?.image ? (
-                      <img src={memberInfo.image} alt={shortName} className="w-full h-full object-cover" />
-                    ) : (
-                      <span>{shortName.slice(0, 2).toUpperCase()}</span>
-                    )}
+                {/* Header */}
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-full bg-[#9E1B32] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm overflow-hidden border border-red-300/40">
+                      {memberInfo?.image ? (
+                        <img src={memberInfo.image} alt={shortName} className="w-full h-full object-cover" />
+                      ) : (
+                        <span>{shortName.slice(0, 2).toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-black text-slate-900 truncate">
+                        {p.name}
+                      </p>
+                      <p className="text-[10px] text-slate-500 truncate">
+                        {shortName}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-black text-slate-900 truncate">
-                      {p.name}
-                    </p>
-                    <p className="text-[10px] text-slate-500 truncate">
-                      {shortName}
-                    </p>
-                  </div>
-                  <span className="text-xs font-black text-slate-800 shrink-0">
-                    {pct}%
-                  </span>
+
+                  {/* Section 1: Current Round / Week Progress */}
+                  {(progressTab === 'combined' || progressTab === 'round') && (
+                    <div className="mt-3.5 pt-2.5 border-t border-slate-200/80 space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-extrabold text-[#9E1B32] flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          Round {activeSprintRound} Sprint:
+                        </span>
+                        <span className="font-mono font-bold text-slate-800">
+                          {roundMetric.finished} / {roundMetric.assigned}
+                        </span>
+                      </div>
+
+                      <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                        <div 
+                          className={`h-1.5 rounded-full transition-all duration-300 ${
+                            isRoundVerified ? 'bg-emerald-500' : isRoundDone ? 'bg-purple-600' : 'bg-[#9E1B32]'
+                          }`}
+                          style={{ width: `${Math.min(100, roundPct)}%` }}
+                        />
+                      </div>
+
+                      {/* Dan's Quality Verification Badge for this Round */}
+                      <div className="flex items-center justify-between text-[10px] pt-0.5">
+                        {isRoundVerified ? (
+                          <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.5 rounded">
+                            <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                            Dan QC Passed
+                          </span>
+                        ) : isRoundDone ? (
+                          <span className="inline-flex items-center gap-1 font-bold text-purple-700 bg-purple-100/80 px-1.5 py-0.5 rounded">
+                            <Hourglass className="w-3 h-3 text-purple-600" />
+                            Awaiting Dan QC
+                          </span>
+                        ) : roundMetric.finished > 0 ? (
+                          <span className="text-blue-600 font-bold">
+                            {roundPct}% in progress
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 italic">
+                            0 / {roundMetric.assigned}
+                          </span>
+                        )}
+
+                        {/* If Dan or Admin is viewing and round is done but not verified, show 1-click verify */}
+                        {canVerifyQuality && isRoundDone && !isRoundVerified && currentRoundMetrics.roundObj && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDanQualitySignOff(currentRoundMetrics.roundObj.id, shortName);
+                            }}
+                            className="px-1.5 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded text-[9px] shadow-xs cursor-pointer flex items-center gap-0.5"
+                            title="Dr. Dan Tian Quality Sign-off"
+                          >
+                            <Check className="w-2.5 h-2.5" />
+                            Verify
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Section 2: Overall Cumulative Progress */}
+                  {(progressTab === 'combined' || progressTab === 'overall') && (
+                    <div className="mt-3 pt-2.5 border-t border-slate-200/80 space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-bold text-slate-700 flex items-center gap-1">
+                          <BarChart3 className="w-3 h-3 text-cyan-600" />
+                          Overall Total:
+                        </span>
+                        <span className="font-mono font-black text-slate-900">
+                          {p.finished} / {p.assigned}
+                        </span>
+                      </div>
+
+                      <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-cyan-600 to-indigo-600 h-1.5 rounded-full transition-all duration-300"
+                          style={{ width: `${Math.min(100, overallPct)}%` }}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-500">
+                        <span>Quality Verified: <strong className="text-emerald-700">{p.qualityVerified}</strong></span>
+                        <span className="font-black text-slate-800">{overallPct}%</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <div className="mt-3 flex items-center justify-between text-xs">
-                  <span className="text-[10px] font-semibold text-slate-500">Samples Done</span>
-                  <span className="text-xs font-bold text-slate-800 font-mono">
-                    {p.finished.toLocaleString()} / {p.assigned.toLocaleString()}
-                  </span>
-                </div>
-
-                <div className="mt-1.5 w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
-                  <div 
-                    className="bg-[#9E1B32] h-1.5 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(100, pct)}%` }}
-                  />
-                </div>
-
-                <div className="mt-2 flex items-center justify-between text-[10px] text-slate-500">
-                  <span>Rounds Complete:</span>
-                  <span className="font-bold text-slate-700">{p.completedTasks} / {p.tasksCount}</span>
+                {/* Footer hint */}
+                <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[9px] text-slate-400">
+                  <span>Click to view rounds</span>
+                  <span>{shortName}</span>
                 </div>
               </div>
             );
@@ -1212,32 +1432,36 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
               <p className="text-xs text-slate-500 mt-0.5">
                 {isAdmin 
                   ? 'Admin Mode: All columns and dates are editable. Click any checkmark, sample count, or edit icon.' 
-                  : 'Member Mode: Click any member row or sample count in the "Number" column to update completed samples and toggle completion.'
+                  : 'Member Mode: Click any member row or sample count in the "Number" column to update completed samples. Once finished, Dr. Dan Tian verifies quality.'
                 }
               </p>
             </div>
 
             <div className="flex items-center gap-3 text-xs font-medium text-slate-600">
               <span className="flex items-center gap-1">
+                <span className="w-3.5 h-3.5 rounded-full bg-emerald-600 flex items-center justify-center text-white text-[9px] font-bold">✓</span>
+                Dan QC Verified
+              </span>
+              <span className="flex items-center gap-1">
                 <span className="w-3.5 h-3.5 rounded-full bg-purple-700 flex items-center justify-center text-white text-[9px] font-bold">✓</span>
-                Completed
+                Awaiting QC
               </span>
               <span className="flex items-center gap-1">
                 <span className="w-3.5 h-3.5 rounded-full border border-slate-400 bg-white"></span>
-                In Progress / Pending
+                In Progress
               </span>
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[1000px]">
+            <table className="w-full text-left border-collapse min-w-[1050px]">
               <thead>
                 <tr className="bg-slate-100 text-slate-800 text-xs font-black border-b border-slate-200">
                   <th className="py-3.5 px-4 w-16 text-center border-r border-slate-200">Round</th>
                   <th className="py-3.5 px-4 w-72 border-r border-slate-200">Basin & Cumulative Finish</th>
-                  <th className="py-3.5 px-4 min-w-[270px] border-r border-slate-200">
+                  <th className="py-3.5 px-4 min-w-[320px] border-r border-slate-200">
                     <div className="flex items-center justify-between">
-                      <span>Number (Team Allocation & Samples)</span>
+                      <span>Number (Member Workload & Dan's QC)</span>
                       <span className="text-[10px] text-[#9E1B32] font-extrabold uppercase bg-red-100 px-1.5 py-0.5 rounded">
                         Editable
                       </span>
@@ -1262,18 +1486,22 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                   </tr>
                 ) : (
                   filteredRounds.map((r, index) => {
-                    const isAllMembersDone = r.allocations.length > 0 && r.allocations.every(a => a.completed);
+                    const isAllMembersVerified = r.allocations.length > 0 && r.allocations.every(a => a.danVerified);
 
                     return (
                       <tr 
                         key={r.id} 
                         className={`transition-colors hover:bg-slate-50/70 ${
-                          isAllMembersDone ? 'bg-purple-50/20' : index % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'
+                          isAllMembersVerified ? 'bg-emerald-50/20' : index % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'
                         }`}
                       >
                         {/* 1. Round */}
                         <td className="py-4 px-4 text-center font-black text-sm text-slate-900 border-r border-slate-200 align-top">
-                          <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 border border-slate-300 font-black text-slate-800">
+                          <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full font-black border ${
+                            Number(r.round) === activeSprintRound 
+                              ? 'bg-[#9E1B32] text-white border-red-700 shadow-sm'
+                              : 'bg-slate-100 border-slate-300 text-slate-800'
+                          }`}>
                             {r.round}
                           </span>
                         </td>
@@ -1322,12 +1550,13 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                           )}
                         </td>
 
-                        {/* 3. Number (Team Allocations - Editable for process completion & sample count) */}
+                        {/* 3. Number (Team Allocations - Editable for process completion, samples count & Dan QA) */}
                         <td className="py-4 px-4 border-r border-slate-200 align-top space-y-2">
                           <div className="space-y-2">
                             {r.allocations.map((a, aIdx) => {
                               const isMemberHighlighted = filterMember !== 'all' && a.memberName.toLowerCase().includes(filterMember.toLowerCase());
-                              const is100Pct = a.completed || (a.numericCount > 0 && a.finishedCount >= a.numericCount);
+                              const isSamplesDone = a.completed || (a.numericCount > 0 && a.finishedCount >= a.numericCount);
+                              const isDanVerified = a.danVerified;
 
                               return (
                                 <div 
@@ -1338,16 +1567,26 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                                       : 'bg-slate-50/70 border-slate-200/80 hover:bg-white hover:border-slate-300 shadow-2xs'
                                   }`}
                                 >
-                                  {/* Purple circular checkbox (toggle complete) */}
+                                  {/* Status Checkbox / Indicator */}
                                   <div 
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleToggleMemberCompletion(r.id, a.memberName);
                                     }}
                                     className="shrink-0 cursor-pointer p-0.5"
-                                    title={a.completed ? "Click to set in-progress" : "Click to mark complete"}
+                                    title={
+                                      isDanVerified 
+                                        ? "Dr. Dan Tian Quality Verified (100% Complete)" 
+                                        : isSamplesDone 
+                                          ? "Member Samples Complete — Awaiting Dan's QC" 
+                                          : "Click to toggle complete / in-progress"
+                                    }
                                   >
-                                    {is100Pct ? (
+                                    {isDanVerified ? (
+                                      <div className="w-5 h-5 rounded-full bg-emerald-600 flex items-center justify-center text-white shadow-xs">
+                                        <CheckCheck className="w-3.5 h-3.5 stroke-[3]" />
+                                      </div>
+                                    ) : isSamplesDone ? (
                                       <div className="w-5 h-5 rounded-full bg-purple-700 flex items-center justify-center text-white shadow-xs">
                                         <Check className="w-3.5 h-3.5 stroke-[3]" />
                                       </div>
@@ -1360,25 +1599,58 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                                   <div 
                                     onClick={() => handleOpenSampleModal(r, a)}
                                     className="flex items-center justify-between flex-1 text-xs cursor-pointer hover:text-[#9E1B32] transition-colors"
-                                    title="Click to update completed samples count or task notes"
+                                    title="Click to update completed samples count"
                                   >
-                                    <span className={`font-bold ${is100Pct ? 'text-slate-900' : 'text-slate-800'}`}>
+                                    <span className="font-bold text-slate-800">
                                       {a.memberName}:
                                     </span>
 
                                     <div className="flex items-center gap-1.5">
                                       <span className={`font-mono text-[11px] font-extrabold px-2 py-0.5 rounded border ${
-                                        is100Pct 
-                                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
-                                          : a.finishedCount > 0
-                                            ? 'bg-blue-50 text-blue-800 border-blue-200'
-                                            : 'bg-white text-slate-800 border-slate-300'
+                                        isDanVerified
+                                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                          : isSamplesDone 
+                                            ? 'bg-purple-50 text-purple-800 border-purple-200' 
+                                            : a.finishedCount > 0
+                                              ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                              : 'bg-white text-slate-800 border-slate-300'
                                       }`}>
                                         {a.finishedCount} / {a.countText}
                                       </span>
                                       <Edit3 className="w-3 h-3 text-slate-400 hover:text-[#9E1B32]" />
                                     </div>
                                   </div>
+
+                                  {/* Dan's Quality Sign-off Badge / Button */}
+                                  <div className="shrink-0 flex items-center gap-1">
+                                    {isDanVerified ? (
+                                      <span className="inline-flex items-center gap-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-200">
+                                        <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                                        Dan QC
+                                      </span>
+                                    ) : isSamplesDone ? (
+                                      canVerifyQuality ? (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDanQualitySignOff(r.id, a.memberName);
+                                          }}
+                                          className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded text-[10px] shadow-xs cursor-pointer flex items-center gap-1"
+                                          title="Click to verify quality as Dr. Dan Tian"
+                                        >
+                                          <ShieldCheck className="w-3 h-3 text-emerald-200" />
+                                          Dan Verify
+                                        </button>
+                                      ) : (
+                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">
+                                          <Hourglass className="w-2.5 h-2.5 text-amber-600" />
+                                          Dan QC Req.
+                                        </span>
+                                      )
+                                    ) : null}
+                                  </div>
+
                                 </div>
                               );
                             })}
@@ -1497,7 +1769,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                                   <Check className="w-3.5 h-3.5 stroke-[3]" />
                                 </div>
                               ) : (
-                                <div className="w-5 h-5 rounded-full border-2 border-slate-400 bg-white" />
+                                <div className="w-5 h-5 rounded-full border-2 border-slate-400 bg-white hover:border-emerald-600 transition-colors" />
                               )}
                             </div>
                             <span className={`text-xs font-bold ${r.backupCompleted ? 'text-emerald-700' : 'text-slate-500'}`}>
@@ -1558,9 +1830,11 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                     </div>
                   </td>
                   <td colSpan={isAdmin ? 5 : 4} className="py-4 px-4 text-right">
-                    <span className="px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-950 text-emerald-300 border border-emerald-800">
-                      {stats.completionRate}% Progress Completed
-                    </span>
+                    <div className="space-y-1">
+                      <span className="px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-950 text-emerald-300 border border-emerald-800">
+                        {stats.qualityVerifiedCount.toLocaleString()} Quality Verified ({stats.verifiedRate}%)
+                      </span>
+                    </div>
                   </td>
                 </tr>
               </tfoot>
@@ -1571,11 +1845,11 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
             <div className="flex items-center gap-1.5">
               <Info className="w-4 h-4 text-slate-400" />
               <span>
-                Standard ERSL Reservoir Protocol Table. Member sample completions are persistent and saved in real time.
+                ERSL Protocol Matrix: Member completed samples require Dr. Dan Tian Quality Sign-off to be 100% verified.
               </span>
             </div>
             <div className="font-semibold text-slate-700">
-              ERSL Hydrology & GeoAI Lab · Dr. Hongxing Liu
+              ERSL Hydrology & GeoAI Lab · Dr. Hongxing Liu · Dr. Dan Tian
             </div>
           </div>
         </div>
@@ -1629,18 +1903,23 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                         );
                       }
 
-                      const is100Pct = alloc.completed || (alloc.numericCount > 0 && alloc.finishedCount >= alloc.numericCount);
+                      const isDanVerified = alloc.danVerified;
+                      const isSamplesDone = alloc.completed || (alloc.numericCount > 0 && alloc.finishedCount >= alloc.numericCount);
 
                       return (
                         <td 
                           key={name}
                           onClick={() => handleOpenSampleModal(r, alloc)}
                           className={`py-3.5 px-4 border-l border-slate-200 cursor-pointer transition-colors ${
-                            is100Pct ? 'bg-purple-50/40 hover:bg-purple-50' : 'hover:bg-slate-100/50'
+                            isDanVerified ? 'bg-emerald-50/40 hover:bg-emerald-50' : isSamplesDone ? 'bg-purple-50/40 hover:bg-purple-50' : 'hover:bg-slate-100/50'
                           }`}
                         >
                           <div className="flex items-center gap-2">
-                            {is100Pct ? (
+                            {isDanVerified ? (
+                              <div className="w-4 h-4 rounded-full bg-emerald-600 flex items-center justify-center text-white text-[10px]">
+                                <CheckCheck className="w-3 h-3 stroke-[3]" />
+                              </div>
+                            ) : isSamplesDone ? (
                               <div className="w-4 h-4 rounded-full bg-purple-700 flex items-center justify-center text-white text-[10px]">
                                 <Check className="w-3 h-3 stroke-[3]" />
                               </div>
@@ -1676,7 +1955,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
             <div className="bg-gradient-to-r from-slate-900 to-[#9E1B32] p-5 text-white flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-wider text-cyan-300">
-                  Member Sample Progress
+                  Member Sample Progress & QC
                 </span>
                 <h3 className="text-base font-extrabold text-white">
                   Round {sampleModal.roundNum} — {sampleModal.memberName}
@@ -1771,11 +2050,11 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                 </div>
               </div>
 
-              {/* Process Completion Checkbox */}
+              {/* Member Process Completion Toggle */}
               <div className="bg-purple-50 p-3.5 rounded-xl border border-purple-200 flex items-center justify-between">
                 <div>
-                  <span className="font-bold text-purple-950 block">Mark Process Completed</span>
-                  <span className="text-[10px] text-purple-700">Flag this round's samples as 100% verified & completed</span>
+                  <span className="font-bold text-purple-950 block">Mark Samples Finished (Member)</span>
+                  <span className="text-[10px] text-purple-700">Submits polygon delineation to Dr. Dan Tian for QA check</span>
                 </div>
                 <input
                   type="checkbox"
@@ -1789,16 +2068,59 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                 />
               </div>
 
+              {/* Dr. Dan Tian Quality Certification Box */}
+              <div className={`p-3.5 rounded-xl border flex items-center justify-between ${
+                sampleModal.danVerified 
+                  ? 'bg-emerald-50 border-emerald-300' 
+                  : canVerifyQuality 
+                    ? 'bg-amber-50 border-amber-300' 
+                    : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div className="flex items-center gap-2.5">
+                  <ShieldCheck className={`w-5 h-5 ${sampleModal.danVerified ? 'text-emerald-600' : 'text-slate-400'}`} />
+                  <div>
+                    <span className="font-bold text-slate-900 block text-xs">
+                      Dr. Dan Tian Quality Check Sign-off
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      {sampleModal.danVerified 
+                        ? 'Certified: Delineated polygons verified accurate' 
+                        : canVerifyQuality 
+                          ? 'Review completed polygons and certify quality' 
+                          : 'Awaiting Dr. Dan Tian QA review'}
+                    </span>
+                  </div>
+                </div>
+
+                {canVerifyQuality ? (
+                  <label className="flex items-center gap-1.5 cursor-pointer font-bold text-emerald-800 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={sampleModal.danVerified}
+                      onChange={(e) => setSampleModal({ ...sampleModal, danVerified: e.target.checked })}
+                      className="w-5 h-5 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <span>Verified</span>
+                  </label>
+                ) : (
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                    sampleModal.danVerified ? 'bg-emerald-200 text-emerald-900' : 'bg-slate-200 text-slate-600'
+                  }`}>
+                    {sampleModal.danVerified ? 'Verified' : 'Pending'}
+                  </span>
+                )}
+              </div>
+
               {/* Progress Notes */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Progress Notes (Optional):
+                  Progress Notes / Methodology (Optional):
                 </label>
                 <textarea
                   rows={2}
                   value={sampleModal.notes}
                   onChange={(e) => setSampleModal({ ...sampleModal, notes: e.target.value })}
-                  placeholder="e.g. 20 SAR high-resolution tiles verified..."
+                  placeholder="e.g. Verified Sentinel-2 optical lake masks..."
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800"
                 />
               </div>
@@ -1815,7 +2137,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                   type="submit"
                   className="px-5 py-2 rounded-lg bg-[#9E1B32] hover:bg-red-800 text-white text-xs font-bold shadow-md cursor-pointer"
                 >
-                  Save Sample Progress
+                  Save Progress
                 </button>
               </div>
 
@@ -1938,18 +2260,18 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                           className="w-20 px-2 py-1 bg-white border border-slate-300 rounded text-xs font-mono font-bold"
                         />
                       </div>
-                      <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
+                      <label className="flex items-center gap-1 text-[11px] text-emerald-800 font-bold cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={a.completed}
+                          checked={a.danVerified}
                           onChange={(e) => {
                             const nextAlloc = [...editingRound.allocations];
-                            nextAlloc[idx] = { ...a, completed: e.target.checked };
+                            nextAlloc[idx] = { ...a, danVerified: e.target.checked };
                             setEditingRound({ ...editingRound, allocations: nextAlloc });
                           }}
-                          className="rounded text-purple-600"
+                          className="rounded text-emerald-600"
                         />
-                        <span>Done</span>
+                        <span>Dan QC</span>
                       </label>
                     </div>
                   ))}
