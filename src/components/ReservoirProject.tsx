@@ -920,6 +920,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
   const { stats, currentRoundMetrics } = useMemo(() => {
     let grandAllocated = 0;
     let grandFinished = 0;
+    let grandBackedUp = 0; // Overall work progress final total reservoir based on backup progress
     let qualityVerifiedCount = 0;
     let pendingDanQcCount = 0;
 
@@ -927,18 +928,37 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       name: string;
       assigned: number;
       finished: number;
+      backedUp: number;
+      backedUpRate: number;
       qualityVerified: number;
       pendingQc: number;
       tasksCount: number;
       completedTasks: number;
+      backedUpTasks: number;
     }> = {};
 
     rounds.forEach(r => {
       grandAllocated += r.basinNumericTotal || 0;
 
+      // Round-level backup status check
+      let roundBackedUpSum = 0;
+      if (r.backupCompleted) {
+        roundBackedUpSum = r.basinNumericTotal || 0;
+      }
+
+      let allocationsBackedUpSum = 0;
+
       r.allocations.forEach(a => {
         grandFinished += a.finishedCount || 0;
         const isVerified = a.checkStatus === 'verified' || a.danVerified;
+        const isBackedUp = a.backupStatus === 'backed_up' || r.backupCompleted;
+
+        const effectiveCount = a.finishedCount > 0 ? a.finishedCount : (a.numericCount || 0);
+
+        if (isBackedUp) {
+          allocationsBackedUpSum += effectiveCount;
+        }
+
         if (isVerified) {
           qualityVerifiedCount += a.finishedCount || 0;
         } else if (a.checkStatus === 'qc_checked' || (a.finishedCount >= a.numericCount && a.numericCount > 0)) {
@@ -951,15 +971,22 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
             name: a.memberName,
             assigned: 0,
             finished: 0,
+            backedUp: 0,
+            backedUpRate: 0,
             qualityVerified: 0,
             pendingQc: 0,
             tasksCount: 0,
-            completedTasks: 0
+            completedTasks: 0,
+            backedUpTasks: 0
           };
         }
         memberProgress[key].assigned += a.numericCount || 0;
         memberProgress[key].finished += a.finishedCount || 0;
         memberProgress[key].tasksCount++;
+        if (isBackedUp) {
+          memberProgress[key].backedUp += effectiveCount;
+          memberProgress[key].backedUpTasks++;
+        }
         if (isVerified) {
           memberProgress[key].qualityVerified += a.finishedCount || 0;
           memberProgress[key].completedTasks++;
@@ -967,6 +994,19 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
           memberProgress[key].pendingQc++;
         }
       });
+
+      // Overall backed-up total for this round
+      if (r.backupCompleted) {
+        grandBackedUp += roundBackedUpSum;
+      } else {
+        grandBackedUp += allocationsBackedUpSum;
+      }
+    });
+
+    // Compute backedUpRate for each member
+    Object.keys(memberProgress).forEach(k => {
+      const m = memberProgress[k];
+      m.backedUpRate = m.assigned > 0 ? Math.round((m.backedUp / m.assigned) * 100) : 0;
     });
 
     // Metrics for the currently selected active sprint / round
@@ -978,6 +1018,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       danVerified: boolean;
       checkStatus?: CheckStatus;
       deliverStatus?: DeliveryStatus;
+      backupStatus?: BackupStatus;
     }> = {};
 
     if (targetRoundObj) {
@@ -989,18 +1030,22 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
           completed: a.completed || (a.numericCount > 0 && a.finishedCount >= a.numericCount),
           danVerified: a.checkStatus === 'verified' || a.danVerified,
           checkStatus: a.checkStatus,
-          deliverStatus: a.deliverStatus
+          deliverStatus: a.deliverStatus,
+          backupStatus: a.backupStatus
         };
       });
     }
 
     const completionRate = grandAllocated > 0 ? Math.round((grandFinished / grandAllocated) * 100) : 0;
+    const backupRate = grandAllocated > 0 ? Math.round((grandBackedUp / grandAllocated) * 100) : 0;
     const verifiedRate = grandAllocated > 0 ? Math.round((qualityVerifiedCount / grandAllocated) * 100) : 0;
 
     return {
       stats: {
         grandAllocated,
         grandFinished,
+        grandBackedUp, // Final Total Reservoirs validated by backup progress
+        backupRate, // Final work progress completion percentage
         qualityVerifiedCount,
         pendingDanQcCount,
         completionRate,
@@ -1416,6 +1461,11 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       showToast('Backup archive status is managed by Dr. Dan Tian or Lab Admin.');
       return;
     }
+
+    const targetRound = rounds.find(r => r.id === roundId);
+    const alloc = targetRound?.allocations.find(a => a.memberName.toLowerCase() === memberName.toLowerCase());
+    const isNowBackedUp = alloc?.backupStatus !== 'backed_up';
+
     updateRoundsAndSync(prev => prev.map(r => {
       if (r.id !== roundId) return r;
       const updatedAllocations = r.allocations.map(a => {
@@ -1432,6 +1482,10 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
         allocations: updatedAllocations
       };
     }));
+
+    showToast(isNowBackedUp 
+      ? `💾 Marked ${memberName} backed up! Overall final total reservoir progress updated.` 
+      : `Marked ${memberName} backup as pending.`);
   };
 
   const handleToggleBackup = (roundId: string) => {
@@ -1439,6 +1493,10 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       showToast('Backup archive status is verified in Admin Mode.');
       return;
     }
+
+    const targetRound = rounds.find(r => r.id === roundId);
+    const isNowBackedUp = !targetRound?.backupCompleted;
+
     updateRoundsAndSync(prev => prev.map(r => {
       if (r.id !== roundId) return r;
       const nextVal = !r.backupCompleted;
@@ -1449,6 +1507,10 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
         allocations: r.allocations.map(a => ({ ...a, backupStatus: nextStatus }))
       };
     }));
+
+    showToast(isNowBackedUp
+      ? `💾 Round ${targetRound?.round} fully backed up! Overall final total reservoir progress updated.`
+      : `Round ${targetRound?.round} backup set to pending.`);
   };
 
   // Inline member date update handler
@@ -1731,28 +1793,38 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
         {/* Milestone Summary Metrics */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-8 pt-6 border-t border-slate-800/80">
           
-          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-slate-700/60">
+          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-slate-700/60" title="Overall work progress final total reservoir updated based on the backup progress">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Reservoirs Allocated</span>
-              <BarChart3 className="w-4 h-4 text-cyan-400" />
+              <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Database className="w-3.5 h-3.5 text-emerald-400" />
+                Final Total Reservoirs (Backed Up)
+              </span>
+              <span className="text-[10px] font-black uppercase text-emerald-400 bg-emerald-950/80 border border-emerald-800 px-1.5 py-0.5 rounded">
+                Backup Progress
+              </span>
             </div>
             <div className="mt-2 flex items-baseline gap-2">
               <span className="text-2xl font-black text-white">
-                {stats.grandAllocated.toLocaleString()}
+                {stats.grandBackedUp.toLocaleString()}
               </span>
               <span className="text-xs text-slate-400 font-medium">
-                across {rounds.length} rounds
+                / {stats.grandAllocated.toLocaleString()} finalized
               </span>
             </div>
             <div className="mt-2.5 w-full bg-slate-700 rounded-full h-2 overflow-hidden">
               <div 
-                className="bg-gradient-to-r from-cyan-500 to-emerald-400 h-2 rounded-full transition-all duration-500" 
-                style={{ width: `${Math.min(100, stats.completionRate)}%` }}
+                className="bg-gradient-to-r from-emerald-500 to-teal-300 h-2 rounded-full transition-all duration-500" 
+                style={{ width: `${Math.min(100, stats.backupRate)}%` }}
               />
             </div>
-            <span className="text-[11px] text-cyan-400 font-bold mt-1.5 inline-block">
-              {stats.grandFinished.toLocaleString()} samples finished ({stats.completionRate}%)
-            </span>
+            <div className="mt-1.5 flex items-center justify-between text-[11px]">
+              <span className="text-emerald-400 font-bold">
+                {stats.grandBackedUp.toLocaleString()} backed up ({stats.backupRate}%)
+              </span>
+              <span className="text-slate-400 text-[10px]">
+                {stats.grandFinished.toLocaleString()} delineated
+              </span>
+            </div>
           </div>
 
           <div className="bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-slate-700/60">
@@ -2105,29 +2177,34 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                     </div>
                   )}
 
-                  {/* Section 2: Overall Cumulative Progress */}
+                  {/* Section 2: Overall Cumulative Progress (Final Total based on Backup Progress) */}
                   {(progressTab === 'combined' || progressTab === 'overall') && (
-                    <div className="mt-3 pt-2.5 border-t border-slate-200/80 space-y-1.5">
+                    <div className="mt-3 pt-2.5 border-t border-slate-200/80 space-y-1.5" title="Final total reservoir count finalized based on backup progress">
                       <div className="flex items-center justify-between text-[11px]">
-                        <span className="font-bold text-slate-700 flex items-center gap-1">
-                          <BarChart3 className="w-3 h-3 text-cyan-600" />
-                          Overall Total:
+                        <span className="font-extrabold text-emerald-800 flex items-center gap-1">
+                          <Database className="w-3 h-3 text-emerald-600" />
+                          Final Total (Backed Up):
                         </span>
-                        <span className="font-mono font-black text-slate-900">
-                          {p.finished} / {p.assigned}
+                        <span className="font-mono font-black text-emerald-900">
+                          {p.backedUp} / {p.assigned}
                         </span>
                       </div>
 
                       <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
                         <div 
-                          className="bg-gradient-to-r from-cyan-600 to-indigo-600 h-1.5 rounded-full transition-all duration-300"
-                          style={{ width: `${Math.min(100, overallPct)}%` }}
+                          className="bg-gradient-to-r from-emerald-600 to-teal-400 h-1.5 rounded-full transition-all duration-300"
+                          style={{ width: `${Math.min(100, p.backedUpRate)}%` }}
                         />
                       </div>
 
                       <div className="flex items-center justify-between text-[10px] text-slate-500">
-                        <span>Quality Verified: <strong className="text-emerald-700">{p.qualityVerified}</strong></span>
-                        <span className="font-black text-slate-800">{overallPct}%</span>
+                        <span>Delineated: <strong className="text-slate-700">{p.finished}</strong> ({overallPct}%)</span>
+                        <span className="font-bold text-emerald-700">{p.backedUpRate}% Finalized</span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[9px] text-slate-400 pt-0.5">
+                        <span>Dan QC Verified: <strong className="text-emerald-700">{p.qualityVerified}</strong></span>
+                        <span>{p.backedUpTasks} of {p.tasksCount} rounds backed up</span>
                       </div>
                     </div>
                   )}
@@ -2369,12 +2446,20 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                             ))}
                           </div>
 
-                          {/* Finish Cumulative */}
+                          {/* Finish Cumulative based on Backup Progress */}
                           {r.finishFormula && (
-                            <div className="pt-1.5 border-t border-slate-100 flex items-center gap-1.5">
-                              <span className="text-[11px] font-black text-purple-900 bg-purple-100 px-2 py-0.5 rounded border border-purple-200">
-                                {r.finishFormula}
-                              </span>
+                            <div className="pt-1.5 border-t border-slate-100 flex flex-wrap items-center gap-1.5">
+                              {r.backupCompleted ? (
+                                <span className="text-[11px] font-black text-emerald-900 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300 flex items-center gap-1 shadow-2xs" title="Final cumulative total confirmed and archived by backup completion">
+                                  <Database className="w-3 h-3 text-emerald-700" />
+                                  {r.finishFormula} (✓ Backed Up)
+                                </span>
+                              ) : (
+                                <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 flex items-center gap-1" title="Target finish. Final overall total updates when this round is backed up.">
+                                  <span className="w-2 h-2 rounded-full border border-slate-400 bg-white" />
+                                  {r.finishFormula} (Backup Pending)
+                                </span>
+                              )}
                             </div>
                           )}
 
