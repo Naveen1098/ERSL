@@ -1157,7 +1157,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Table 2 Format (Protocol)
+              Schedule Table
             </button>
             <button
               type="button"
@@ -1188,7 +1188,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       </div>
 
       {/* =========================================================================
-          THE MAIN INTERACTIVE TABLE: FORMAT 2 PROTOCOL TABLE
+          THE MAIN INTERACTIVE TABLE: PROTOCOL TABLE
           Columns: Round | Basin | Number | Diliver date | Collect date | Check date | Backup date
           ========================================================================= */}
       {viewMode === 'protocol' ? (
@@ -1198,7 +1198,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
           <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h2 className="text-sm font-black text-slate-900 tracking-wide uppercase flex items-center gap-2 flex-wrap">
-                <span>Reservoir Allocation & Delineation Schedule (Table 2 Format)</span>
+                <span>Reservoir Allocation & Delineation Schedule</span>
                 <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
                   {filteredRounds.length} Rounds
                 </span>
