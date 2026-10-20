@@ -6,6 +6,7 @@ import {
   Maximize2, UploadCloud, Mail
 } from 'lucide-react';
 import { supabase, Profile } from '../lib/supabase';
+import { getCloudData, setCloudData } from '../lib/cloudStore';
 import { initialPeople } from '../data/initialData';
 import type { User } from '../types';
 
@@ -255,31 +256,29 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     setPeople(deduplicatedList);
     setAliasMap({ ...aliases });
 
-    if (!supabase) return;
+    // 1. Fetch cloud workplan matrix as authoritative source of truth
     try {
-      const [t, p] = await Promise.all([
-        supabase.from('tasks').select('*').order('due_date', { ascending: true, nullsFirst: false }),
-        supabase.from('profiles').select('*').in('role', ['admin', 'member']),
-      ]);
-      if (t.error) {
-        console.warn('Supabase tasks fetch notice:', t.error.message);
-      } else if (t.data) {
-        // Safe merge: preserve locally created tasks and combine with remote records
-        let existingLocal: Task[] = [];
+      const { data: cloudMatrix } = await getCloudData<{ tasks: Task[]; comments: Record<string, Comment[]> }>('ersl_workplan_matrix');
+      if (cloudMatrix?.tasks && Array.isArray(cloudMatrix.tasks) && cloudMatrix.tasks.length > 0) {
+        setTasks(cloudMatrix.tasks);
+        try { localStorage.setItem('ersl_tasks', JSON.stringify(cloudMatrix.tasks)); } catch {}
+      } else {
+        // Fallback to local storage if cloud is not yet seeded
         try {
           const raw = localStorage.getItem('ersl_tasks');
-          if (raw) existingLocal = JSON.parse(raw);
-        } catch {}
-
-        const remoteIds = new Set(t.data.map((item: any) => item.id));
-        const localPreserved = existingLocal.filter(item => !remoteIds.has(item.id));
-        const combinedTasks = [...(t.data as Task[]), ...localPreserved];
-
-        setTasks(combinedTasks);
-        try {
-          localStorage.setItem('ersl_tasks', JSON.stringify(combinedTasks));
+          if (raw) setTasks(JSON.parse(raw));
         } catch {}
       }
+      if (cloudMatrix?.comments && typeof cloudMatrix.comments === 'object') {
+        setComments(cloudMatrix.comments);
+      }
+    } catch (e) {
+      console.warn('Cloud workplan matrix fetch notice:', e);
+    }
+
+    if (!supabase) return;
+    try {
+      const p = await supabase.from('profiles').select('*').in('role', ['admin', 'member']);
       if (p.data && p.data.length > 0) {
         (p.data as Profile[]).forEach(profile => mergeProfile(profile));
         const finalMerged = Array.from(peopleByEmail.values());
@@ -357,33 +356,15 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
       status: 'not_started'
     };
 
-    // Optimistic local add
-    setTasks(prev => {
-      const updated = [newTask, ...prev];
-      localStorage.setItem('ersl_tasks', JSON.stringify(updated));
-      return updated;
-    });
+    // Optimistic local add & guaranteed cloud sync
+    const nextTasks = [newTask, ...tasks];
+    setTasks(nextTasks);
+    try {
+      localStorage.setItem('ersl_tasks', JSON.stringify(nextTasks));
+    } catch {}
 
-    if (supabase) {
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetOwner);
-      const uuidToUse = isUuid 
-        ? targetOwner 
-        : Object.keys(aliasMap).find(k => aliasMap[k] === targetOwner && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(k));
-      if (uuidToUse) {
-        try {
-          const { error: err } = await supabase.from('tasks').insert({
-            title: form.title,
-            description: form.description,
-            due_date: form.due_date || null,
-            owner_id: uuidToUse,
-            created_by: currentUser?.id,
-          });
-          if (err) setError(err.message);
-        } catch (err: any) {
-          console.warn('Task insert error:', err);
-        }
-      }
-    }
+    // Persist to Supabase cloud database
+    setCloudData('ersl_workplan_matrix', { tasks: nextTasks, comments }, { updatedBy: currentUser?.name || currentUser?.email }).catch(() => {});
 
     // Build standard, professional email content
     const mailSubject = `[ERSL Lab Workplan] New Research Milestone Assigned: ${form.title}`;
@@ -429,41 +410,25 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
   };
 
   const update = async (id: string, patch: Partial<Task>) => {
-    setTasks(prev => {
-      const updated = prev.map(t => t.id === id ? { ...t, ...patch } : t);
-      localStorage.setItem('ersl_tasks', JSON.stringify(updated));
-      return updated;
-    });
+    const updated = tasks.map(t => t.id === id ? { ...t, ...patch } : t);
+    setTasks(updated);
+    try { localStorage.setItem('ersl_tasks', JSON.stringify(updated)); } catch {}
 
     if (activeTaskModal && activeTaskModal.id === id) {
       setActiveTaskModal(prev => prev ? { ...prev, ...patch } : null);
     }
 
-    if (supabase) {
-      try {
-        await supabase.from('tasks').update(patch).eq('id', id);
-      } catch (err) {
-        console.warn('Update task error:', err);
-      }
-    }
+    setCloudData('ersl_workplan_matrix', { tasks: updated, comments }, { updatedBy: currentUser?.name }).catch(() => {});
   };
 
   const remove = async (t: Task) => {
     if (!confirm(`Delete task "${t.title}"?`)) return;
-    setTasks(prev => {
-      const updated = prev.filter(item => item.id !== t.id);
-      localStorage.setItem('ersl_tasks', JSON.stringify(updated));
-      return updated;
-    });
+    const updated = tasks.filter(item => item.id !== t.id);
+    setTasks(updated);
+    try { localStorage.setItem('ersl_tasks', JSON.stringify(updated)); } catch {}
     if (activeTaskModal?.id === t.id) setActiveTaskModal(null);
 
-    if (supabase) {
-      try {
-        await supabase.from('tasks').delete().eq('id', t.id);
-      } catch (err) {
-        console.warn('Delete task error:', err);
-      }
-    }
+    setCloudData('ersl_workplan_matrix', { tasks: updated, comments }, { updatedBy: currentUser?.name }).catch(() => {});
   };
 
   const loadComments = useCallback(async (taskId: string) => {
@@ -514,30 +479,16 @@ export const Workplan: React.FC<{ currentUser: User }> = ({ currentUser }) => {
       created_at: new Date().toISOString()
     };
 
-    // Optimistic UI update
-    setComments(prev => {
-      const current = prev[taskId] || [];
-      const updated = [...current, newComment];
-      try {
-        localStorage.setItem(`ersl_comments_${taskId}`, JSON.stringify(updated));
-      } catch (err) {
-        console.warn('LocalStorage write notice for comments:', err);
-      }
-      return { ...prev, [taskId]: updated };
-    });
+    // Optimistic UI update and cloud persistence
+    const current = comments[taskId] || [];
+    const updated = [...current, newComment];
+    const updatedComments = { ...comments, [taskId]: updated };
+    setComments(updatedComments);
+    try {
+      localStorage.setItem(`ersl_comments_${taskId}`, JSON.stringify(updated));
+    } catch {}
 
-    if (supabase) {
-      try {
-        await supabase.from('task_comments').insert({
-          task_id: taskId, 
-          author_id: currentUser.id, 
-          author_name: currentUser.name || currentUser.email || 'Lab Member', 
-          body: body.trim(),
-        });
-      } catch (err) {
-        console.warn('Supabase comment insert notice:', err);
-      }
-    }
+    setCloudData('ersl_workplan_matrix', { tasks, comments: updatedComments }, { updatedBy: currentUser?.name }).catch(() => {});
   };
 
   // Role Scoping: Admin sees filtered selection (or all), members ONLY see their own tasks

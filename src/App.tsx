@@ -31,6 +31,7 @@ import { BoxFolders } from './components/BoxFolders';
 import { MemberManager } from './components/MemberManager';
 import { ProfessionalDevelopment } from './components/ProfessionalDevelopment';
 import { supabase, fetchProfile, profileToUser } from './lib/supabase';
+import { getCloudData, setCloudData } from './lib/cloudStore';
 
 // Field photos: any image dropped into src/assets/field/ is picked up automatically
 const fieldPhotoModules = import.meta.glob('./assets/field/*.{jpg,jpeg,png,webp,JPG,JPEG,PNG,WEBP}', {
@@ -229,13 +230,85 @@ export default function App() {
   const [editingNewsItem, setEditingNewsItem] = useState<NewsItem | null>(null);
   const [newsCategoryFilter, setNewsCategoryFilter] = useState<string>('all');
 
+  // Universal Cloud Synchronizer for Editable Site Content
+  const syncSiteContentToCloud = (overrides?: {
+    publications?: Publication[];
+    software?: Software[];
+    dataLayers?: DataLayer[];
+    instruments?: Instrument[];
+    people?: Person[];
+    themes?: ResearchTheme[];
+    news?: NewsItem[];
+    teaching?: any[];
+  }) => {
+    const payload = {
+      publications: overrides?.publications ?? publications,
+      software: overrides?.software ?? softwareList,
+      dataLayers: overrides?.dataLayers ?? dataLayers,
+      instruments: overrides?.instruments ?? instruments,
+      people: overrides?.people ?? people,
+      themes: overrides?.themes ?? themes,
+      news: overrides?.news ?? news,
+      teaching: overrides?.teaching ?? teachingList,
+    };
+    setCloudData('ersl_site_content', payload, { updatedBy: currentUser?.name || currentUser?.email || 'Admin' }).catch(() => {});
+  };
+
+  // Initial cloud fetch on mount: hydrate all editable sections from Supabase
+  useEffect(() => {
+    getCloudData<{
+      publications?: Publication[];
+      software?: Software[];
+      dataLayers?: DataLayer[];
+      instruments?: Instrument[];
+      people?: Person[];
+      themes?: ResearchTheme[];
+      news?: NewsItem[];
+      teaching?: any[];
+    }>('ersl_site_content').then(({ data }) => {
+      if (!data) return;
+      if (Array.isArray(data.publications) && data.publications.length > 0) {
+        setPublications(data.publications);
+        try { localStorage.setItem('ersl_publications', JSON.stringify(data.publications)); } catch {}
+      }
+      if (Array.isArray(data.software) && data.software.length > 0) {
+        setSoftwareList(data.software);
+        try { localStorage.setItem('ersl_software', JSON.stringify(data.software)); } catch {}
+      }
+      if (Array.isArray(data.dataLayers) && data.dataLayers.length > 0) {
+        setDataLayers(data.dataLayers);
+        try { localStorage.setItem('ersl_datalayers', JSON.stringify(data.dataLayers)); } catch {}
+      }
+      if (Array.isArray(data.instruments) && data.instruments.length > 0) {
+        setInstruments(data.instruments);
+        try { localStorage.setItem('ersl_instruments', JSON.stringify(data.instruments)); } catch {}
+      }
+      if (Array.isArray(data.people) && data.people.length > 0) {
+        setPeople(data.people);
+        try { localStorage.setItem('ersl_people', JSON.stringify(data.people)); } catch {}
+      }
+      if (Array.isArray(data.themes) && data.themes.length > 0) {
+        setThemes(data.themes);
+        try { localStorage.setItem('ersl_themes', JSON.stringify(data.themes)); } catch {}
+      }
+      if (Array.isArray(data.news) && data.news.length > 0) {
+        setNews(data.news);
+        try { localStorage.setItem('ersl_news', JSON.stringify(data.news)); } catch {}
+      }
+      if (Array.isArray(data.teaching) && data.teaching.length > 0) {
+        setTeachingList(data.teaching);
+        try { localStorage.setItem('ersl_teaching', JSON.stringify(data.teaching)); } catch {}
+      }
+    });
+  }, []);
+
   useEffect(() => {
     localStorage.setItem('ersl_news', JSON.stringify(news));
   }, [news]);
 
   const handleSaveNewsItem = (savedItem: NewsItem) => {
+    let updated: NewsItem[] = [];
     setNews(prev => {
-      let updated: NewsItem[];
       const idx = prev.findIndex(n => n.id === savedItem.id);
       if (idx >= 0) {
         updated = [...prev];
@@ -246,6 +319,7 @@ export default function App() {
       localStorage.setItem('ersl_news', JSON.stringify(updated));
       return updated;
     });
+    syncSiteContentToCloud({ news: updated });
     setNewsModalOpen(false);
     setEditingNewsItem(null);
     appendAuditLog('UPDATE_NEWS', `Saved news update: "${savedItem.title}"`);
@@ -253,11 +327,13 @@ export default function App() {
 
   const handleDeleteNewsItem = (id: string, title: string) => {
     if (!confirm(`Are you sure you want to delete news announcement "${title}"?`)) return;
+    let updated: NewsItem[] = [];
     setNews(prev => {
-      const updated = prev.filter(n => n.id !== id);
+      updated = prev.filter(n => n.id !== id);
       localStorage.setItem('ersl_news', JSON.stringify(updated));
       return updated;
     });
+    syncSiteContentToCloud({ news: updated });
     appendAuditLog('DELETE_NEWS', `Deleted news announcement: "${title}"`);
   };
   const [bulletinFolders, setBulletinFolders] = useState<string[]>(() => {
@@ -584,53 +660,46 @@ export default function App() {
     const isEdit = !!editingItem;
 
     if (modalType === 'publication') {
-      setPublications(prev => {
-        const updated = isEdit ? prev.map(p => p.id === savedItem.id ? savedItem : p) : [savedItem, ...prev];
-        try { localStorage.setItem('ersl_publications', JSON.stringify(updated)); } catch {}
-        return updated;
-      });
+      const updated = isEdit ? publications.map(p => p.id === savedItem.id ? savedItem : p) : [savedItem, ...publications];
+      setPublications(updated);
+      try { localStorage.setItem('ersl_publications', JSON.stringify(updated)); } catch {}
+      syncSiteContentToCloud({ publications: updated });
       appendAuditLog(isEdit ? 'UPDATE_PUBLICATION' : 'ADD_PUBLICATION', savedItem.title);
     } else if (modalType === 'data-layer') {
-      setDataLayers(prev => {
-        const updated = isEdit ? prev.map(d => d.id === savedItem.id ? savedItem : d) : [savedItem, ...prev];
-        try { localStorage.setItem('ersl_datalayers', JSON.stringify(updated)); } catch {}
-        return updated;
-      });
+      const updated = isEdit ? dataLayers.map(d => d.id === savedItem.id ? savedItem : d) : [savedItem, ...dataLayers];
+      setDataLayers(updated);
+      try { localStorage.setItem('ersl_datalayers', JSON.stringify(updated)); } catch {}
+      syncSiteContentToCloud({ dataLayers: updated });
       appendAuditLog(isEdit ? 'UPDATE_DATALAYER' : 'ADD_DATALAYER', savedItem.name);
     } else if (modalType === 'research-theme') {
-      setThemes(prev => {
-        const updated = isEdit ? prev.map(t => t.id === savedItem.id ? savedItem : t) : [...prev, savedItem];
-        try { localStorage.setItem('ersl_themes', JSON.stringify(updated)); } catch {}
-        return updated;
-      });
+      const updated = isEdit ? themes.map(t => t.id === savedItem.id ? savedItem : t) : [...themes, savedItem];
+      setThemes(updated);
+      try { localStorage.setItem('ersl_themes', JSON.stringify(updated)); } catch {}
+      syncSiteContentToCloud({ themes: updated });
       appendAuditLog(isEdit ? 'UPDATE_RESEARCH_THEME' : 'ADD_RESEARCH_THEME', savedItem.title);
     } else if (modalType === 'instrument') {
-      setInstruments(prev => {
-        const updated = isEdit ? prev.map(i => i.id === savedItem.id ? savedItem : i) : [...prev, savedItem];
-        try { localStorage.setItem('ersl_instruments', JSON.stringify(updated)); } catch {}
-        return updated;
-      });
+      const updated = isEdit ? instruments.map(i => i.id === savedItem.id ? savedItem : i) : [...instruments, savedItem];
+      setInstruments(updated);
+      try { localStorage.setItem('ersl_instruments', JSON.stringify(updated)); } catch {}
+      syncSiteContentToCloud({ instruments: updated });
       appendAuditLog(isEdit ? 'UPDATE_INSTRUMENT' : 'ADD_INSTRUMENT', savedItem.name);
     } else if (modalType === 'person') {
-      setPeople(prev => {
-        const updated = isEdit ? prev.map(p => p.id === savedItem.id ? savedItem : p) : [...prev, savedItem];
-        try { localStorage.setItem('ersl_people', JSON.stringify(updated)); } catch {}
-        return updated;
-      });
+      const updated = isEdit ? people.map(p => p.id === savedItem.id ? savedItem : p) : [...people, savedItem];
+      setPeople(updated);
+      try { localStorage.setItem('ersl_people', JSON.stringify(updated)); } catch {}
+      syncSiteContentToCloud({ people: updated });
       appendAuditLog(isEdit ? 'UPDATE_PEOPLE_ROSTER' : 'ADD_PEOPLE_ROSTER', savedItem.name);
     } else if (modalType === 'software') {
-      setSoftwareList(prev => {
-        const updated = isEdit ? prev.map(s => s.id === savedItem.id ? savedItem : s) : [savedItem, ...prev];
-        try { localStorage.setItem('ersl_software', JSON.stringify(updated)); } catch {}
-        return updated;
-      });
+      const updated = isEdit ? softwareList.map(s => s.id === savedItem.id ? savedItem : s) : [savedItem, ...softwareList];
+      setSoftwareList(updated);
+      try { localStorage.setItem('ersl_software', JSON.stringify(updated)); } catch {}
+      syncSiteContentToCloud({ software: updated });
       appendAuditLog(isEdit ? 'UPDATE_SOFTWARE' : 'ADD_SOFTWARE', savedItem.title);
     } else if (modalType === 'teaching') {
-      setTeachingList(prev => {
-        const updated = isEdit ? prev.map(t => t.id === savedItem.id ? savedItem : t) : [savedItem, ...prev];
-        try { localStorage.setItem('ersl_teaching', JSON.stringify(updated)); } catch {}
-        return updated;
-      });
+      const updated = isEdit ? teachingList.map(t => t.id === savedItem.id ? savedItem : t) : [savedItem, ...teachingList];
+      setTeachingList(updated);
+      try { localStorage.setItem('ersl_teaching', JSON.stringify(updated)); } catch {}
+      syncSiteContentToCloud({ teaching: updated });
       appendAuditLog(isEdit ? 'UPDATE_TEACHING_MATERIAL' : 'ADD_TEACHING_MATERIAL', savedItem.title);
     }
 
@@ -645,53 +714,46 @@ export default function App() {
     }
 
     if (itemType === 'publication') {
-      setPublications(prev => {
-        const updated = prev.filter(p => p.id !== id);
-        try { localStorage.setItem('ersl_publications', JSON.stringify(updated)); } catch {}
-        return updated;
-      });
+      const updated = publications.filter(p => p.id !== id);
+      setPublications(updated);
+      try { localStorage.setItem('ersl_publications', JSON.stringify(updated)); } catch {}
+      syncSiteContentToCloud({ publications: updated });
       appendAuditLog('DELETE_PUBLICATION', displayName);
     } else if (itemType === 'data-layer') {
-      setDataLayers(prev => {
-        const updated = prev.filter(d => d.id !== id);
-        try { localStorage.setItem('ersl_datalayers', JSON.stringify(updated)); } catch {}
-        return updated;
-      });
+      const updated = dataLayers.filter(d => d.id !== id);
+      setDataLayers(updated);
+      try { localStorage.setItem('ersl_datalayers', JSON.stringify(updated)); } catch {}
+      syncSiteContentToCloud({ dataLayers: updated });
       appendAuditLog('DELETE_DATALAYER', displayName);
     } else if (itemType === 'research-theme') {
-      setThemes(prev => {
-        const updated = prev.filter(t => t.id !== id);
-        try { localStorage.setItem('ersl_themes', JSON.stringify(updated)); } catch {}
-        return updated;
-      });
+      const updated = themes.filter(t => t.id !== id);
+      setThemes(updated);
+      try { localStorage.setItem('ersl_themes', JSON.stringify(updated)); } catch {}
+      syncSiteContentToCloud({ themes: updated });
       appendAuditLog('DELETE_RESEARCH_THEME', displayName);
     } else if (itemType === 'instrument') {
-      setInstruments(prev => {
-        const updated = prev.filter(i => i.id !== id);
-        try { localStorage.setItem('ersl_instruments', JSON.stringify(updated)); } catch {}
-        return updated;
-      });
+      const updated = instruments.filter(i => i.id !== id);
+      setInstruments(updated);
+      try { localStorage.setItem('ersl_instruments', JSON.stringify(updated)); } catch {}
+      syncSiteContentToCloud({ instruments: updated });
       appendAuditLog('DELETE_INSTRUMENT', displayName);
     } else if (itemType === 'person') {
-      setPeople(prev => {
-        const updated = prev.filter(p => p.id !== id);
-        try { localStorage.setItem('ersl_people', JSON.stringify(updated)); } catch {}
-        return updated;
-      });
+      const updated = people.filter(p => p.id !== id);
+      setPeople(updated);
+      try { localStorage.setItem('ersl_people', JSON.stringify(updated)); } catch {}
+      syncSiteContentToCloud({ people: updated });
       appendAuditLog('DELETE_PEOPLE_ROSTER', displayName);
     } else if (itemType === 'software') {
-      setSoftwareList(prev => {
-        const updated = prev.filter(s => s.id !== id);
-        try { localStorage.setItem('ersl_software', JSON.stringify(updated)); } catch {}
-        return updated;
-      });
+      const updated = softwareList.filter(s => s.id !== id);
+      setSoftwareList(updated);
+      try { localStorage.setItem('ersl_software', JSON.stringify(updated)); } catch {}
+      syncSiteContentToCloud({ software: updated });
       appendAuditLog('DELETE_SOFTWARE', displayName);
     } else if (itemType === 'teaching') {
-      setTeachingList(prev => {
-        const updated = prev.filter(t => t.id !== id);
-        try { localStorage.setItem('ersl_teaching', JSON.stringify(updated)); } catch {}
-        return updated;
-      });
+      const updated = teachingList.filter(t => t.id !== id);
+      setTeachingList(updated);
+      try { localStorage.setItem('ersl_teaching', JSON.stringify(updated)); } catch {}
+      syncSiteContentToCloud({ teaching: updated });
       appendAuditLog('DELETE_TEACHING_MATERIAL', displayName);
     }
   };

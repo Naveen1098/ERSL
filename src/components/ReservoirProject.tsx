@@ -622,9 +622,17 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
   //    members & admin update immediately in real-time.
   // 3. Responds to state requests so newly opened admin tabs receive latest progress.
   // 4. Polls periodically and on window focus to stay completely synchronized.
+  const [isCloudFetching, setIsCloudFetching] = useState(false);
+
   // =========================================================================
-  const fetchCloudData = async () => {
+  // CLOUD PERSISTENCE & SYNCHRONIZATION (DATABASE-FIRST ARCHITECTURE)
+  // 1. Loads directly from Supabase database `reservoir_matrix` as the source of truth.
+  // 2. Broadcasts live via Supabase Realtime when a user edits so other screens update.
+  // 3. Automatically refetches on window focus and periodic background sync.
+  // =========================================================================
+  const fetchCloudData = async (showFeedback = false) => {
     if (!supabase) return;
+    setIsCloudFetching(true);
     try {
       const { data, error } = await supabase
         .from('reservoir_matrix')
@@ -635,34 +643,42 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       if (!error && data && data.rounds && Array.isArray(data.rounds)) {
         const sanitized = sanitizeRounds(data.rounds);
         setRounds(sanitized);
+        roundsRef.current = sanitized;
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
         } catch {}
         if (data.active_round) {
-          setExplicitActiveDeliveryRound(Number(data.active_round));
+          const actNum = Number(data.active_round);
+          setExplicitActiveDeliveryRound(actNum);
+          explicitActiveRoundRef.current = actNum;
           try {
-            localStorage.setItem(STORAGE_KEY + '_active_round', String(data.active_round));
+            localStorage.setItem(STORAGE_KEY + '_active_round', String(actNum));
           } catch {}
         }
         setCloudSyncStatus('synced');
+        if (showFeedback) {
+          showToast('✓ Cloud database refreshed: showing latest lab updates!');
+        }
       } else if (error && (error.code === 'PGRST205' || error.message?.includes('schema cache'))) {
         setCloudSyncStatus('table_needed');
       }
     } catch (err) {
       console.warn('Cloud fetch notice:', err);
+    } finally {
+      setIsCloudFetching(false);
     }
   };
 
   useEffect(() => {
     let isMounted = true;
 
-    // Initial load
+    // Initial load: fetch directly from Supabase
     fetchCloudData();
 
     // Setup Supabase Realtime Channel
     if (supabase) {
       const channel = supabase.channel('ersl_reservoir_realtime', {
-        config: { broadcast: { self: true, ack: true } }
+        config: { broadcast: { self: false } }
       });
       channelRef.current = channel;
 
@@ -673,12 +689,14 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
             const sanitized = sanitizeRounds(incomingRounds);
             if (isMounted) {
               setRounds(sanitized);
+              roundsRef.current = sanitized;
               try {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
               } catch {}
               if (payload?.payload?.activeRound) {
                 const act = Number(payload.payload.activeRound);
                 setExplicitActiveDeliveryRound(act);
+                explicitActiveRoundRef.current = act;
                 try {
                   localStorage.setItem(STORAGE_KEY + '_active_round', String(act));
                 } catch {}
@@ -688,31 +706,19 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
             }
           }
         })
-        .on('broadcast', { event: 'request_state' }, () => {
-          // If we have state, send our latest state to help incoming peer synchronize
-          if (channelRef.current && roundsRef.current && roundsRef.current.length > 0) {
-            channelRef.current.send({
-              type: 'broadcast',
-              event: 'reservoir_matrix_sync',
-              payload: {
-                rounds: roundsRef.current,
-                activeRound: explicitActiveRoundRef.current,
-                sender: currentUser?.name || 'Lab Node',
-                timestamp: Date.now()
-              }
-            }).catch(() => {});
-          }
-        })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'reservoir_matrix' }, (payload: any) => {
           if (payload?.new?.rounds && Array.isArray(payload.new.rounds)) {
             const incoming = sanitizeRounds(payload.new.rounds);
             if (isMounted) {
               setRounds(incoming);
+              roundsRef.current = incoming;
               try {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(incoming));
               } catch {}
               if (payload.new.active_round) {
-                setExplicitActiveDeliveryRound(Number(payload.new.active_round));
+                const act = Number(payload.new.active_round);
+                setExplicitActiveDeliveryRound(act);
+                explicitActiveRoundRef.current = act;
               }
               setCloudSyncStatus('synced');
               showToast('⚡ Live cloud database update synced!');
@@ -721,34 +727,18 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
         })
         .subscribe((status) => {
           if (isMounted) {
-            const isSub = status === 'SUBSCRIBED';
-            setRealtimeActive(isSub);
-            if (isSub) {
-              // Ask active peers for any in-flight state
-              channel.send({
-                type: 'broadcast',
-                event: 'request_state',
-                payload: { requester: currentUser?.name || 'Lab Member' }
-              }).catch(() => {});
-            }
+            setRealtimeActive(status === 'SUBSCRIBED');
           }
         });
 
       // Background periodic polling & window focus synchronization
       const pollTimer = setInterval(() => {
         if (isMounted) fetchCloudData();
-      }, 8000);
+      }, 10000);
 
       const handleWindowFocus = () => {
         if (isMounted) {
           fetchCloudData();
-          if (channelRef.current) {
-            channelRef.current.send({
-              type: 'broadcast',
-              event: 'request_state',
-              payload: { requester: currentUser?.name || 'Lab Member' }
-            }).catch(() => {});
-          }
         }
       };
 
@@ -770,13 +760,13 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     };
   }, []);
 
-  // Central synchronized update function
   const updateRoundsAndSync = (
     updater: (prev: RoundRow[]) => RoundRow[],
     newActiveRound?: number
   ) => {
     setRounds(prev => {
       const nextRounds = updater(prev);
+      roundsRef.current = nextRounds;
       const targetActiveRound = newActiveRound ?? explicitActiveRoundRef.current ?? autoDetectedActiveRound;
 
       // 1. Local storage backup
@@ -1857,6 +1847,17 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
             >
               <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
               Export CSV
+            </button>
+
+            <button
+              type="button"
+              onClick={() => fetchCloudData(true)}
+              disabled={isCloudFetching}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-all border border-slate-700 shadow-sm cursor-pointer disabled:opacity-50"
+              title="Sync latest updates directly from Supabase cloud database"
+            >
+              <RotateCcw className={`w-4 h-4 text-cyan-400 ${isCloudFetching ? 'animate-spin' : ''}`} />
+              <span>{isCloudFetching ? 'Syncing...' : 'Sync Cloud'}</span>
             </button>
 
             {isAdmin && (

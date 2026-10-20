@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   BookOpen, FileText, Download, ExternalLink, Sparkles, CheckCircle2, 
   ChevronRight, Compass, Search, Tag, Clock, User, X, Plus, FolderGit2, 
@@ -6,6 +6,7 @@ import {
   Lightbulb, Layers, Award
 } from 'lucide-react';
 import type { User as UserType } from '../types';
+import { getCloudData, setCloudData } from '../lib/cloudStore';
 
 export interface GuideAttachment {
   name: string;
@@ -383,6 +384,16 @@ export const ProfessionalDevelopment: React.FC<{ currentUser?: UserType | null }
   });
 
   const [activeCategory, setActiveCategory] = useState<string>('all');
+
+  // Hydrate posts from cloud on mount
+  useEffect(() => {
+    getCloudData<MentorshipPost[]>('ersl_professional_posts').then(({ data }) => {
+      if (Array.isArray(data) && data.length > 0) {
+        setPosts(data);
+        try { localStorage.setItem('ersl_professional_posts', JSON.stringify(data)); } catch {}
+      }
+    });
+  }, []);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedPost, setSelectedPost] = useState<MentorshipPost | null>(null);
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
@@ -520,7 +531,8 @@ export const ProfessionalDevelopment: React.FC<{ currentUser?: UserType | null }
 
     const updated = [newPost, ...posts];
     setPosts(updated);
-    localStorage.setItem('ersl_professional_posts', JSON.stringify(updated));
+    try { localStorage.setItem('ersl_professional_posts', JSON.stringify(updated)); } catch {}
+    setCloudData('ersl_professional_posts', updated, { updatedBy: currentUser?.name || 'Lab Mentor' }).catch(() => {});
 
     // Reset Form
     setNewTitle('');
