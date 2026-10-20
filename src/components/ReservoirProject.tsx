@@ -44,7 +44,9 @@ import {
   RotateCcw,
   Cloud,
   CloudCheck,
-  Radio
+  Radio,
+  MessageSquare,
+  MessageSquarePlus
 } from 'lucide-react';
 
 export type DeliveryStatus = 'not_started' | 'delivered';
@@ -945,12 +947,18 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       if (r.backupCompleted) {
         roundBackedUpSum = r.basinNumericTotal || 0;
       }
-
       let allocationsBackedUpSum = 0;
+
+      // Round-level QC verified status check
+      let roundVerifiedSum = 0;
+      if (r.checkCompleted) {
+        roundVerifiedSum = r.basinNumericTotal || 0;
+      }
+      let allocationsVerifiedSum = 0;
 
       r.allocations.forEach(a => {
         grandFinished += a.finishedCount || 0;
-        const isVerified = a.checkStatus === 'verified' || a.danVerified;
+        const isVerified = a.checkStatus === 'verified' || a.danVerified || r.checkCompleted;
         const isBackedUp = a.backupStatus === 'backed_up' || r.backupCompleted;
 
         const effectiveCount = a.finishedCount > 0 ? a.finishedCount : (a.numericCount || 0);
@@ -960,7 +968,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
         }
 
         if (isVerified) {
-          qualityVerifiedCount += a.finishedCount || 0;
+          allocationsVerifiedSum += effectiveCount;
         } else if (a.checkStatus === 'qc_checked' || (a.finishedCount >= a.numericCount && a.numericCount > 0)) {
           pendingDanQcCount++;
         }
@@ -974,6 +982,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
             backedUp: 0,
             backedUpRate: 0,
             qualityVerified: 0,
+            verifiedRate: 0,
             pendingQc: 0,
             tasksCount: 0,
             completedTasks: 0,
@@ -988,7 +997,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
           memberProgress[key].backedUpTasks++;
         }
         if (isVerified) {
-          memberProgress[key].qualityVerified += a.finishedCount || 0;
+          memberProgress[key].qualityVerified += effectiveCount;
           memberProgress[key].completedTasks++;
         } else if (a.checkStatus === 'qc_checked' || (a.finishedCount >= a.numericCount && a.numericCount > 0)) {
           memberProgress[key].pendingQc++;
@@ -1001,12 +1010,20 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       } else {
         grandBackedUp += allocationsBackedUpSum;
       }
+
+      // Overall QC verified total for this round
+      if (r.checkCompleted) {
+        qualityVerifiedCount += roundVerifiedSum;
+      } else {
+        qualityVerifiedCount += allocationsVerifiedSum;
+      }
     });
 
-    // Compute backedUpRate for each member
+    // Compute rates for each member
     Object.keys(memberProgress).forEach(k => {
       const m = memberProgress[k];
       m.backedUpRate = m.assigned > 0 ? Math.round((m.backedUp / m.assigned) * 100) : 0;
+      m.verifiedRate = m.assigned > 0 ? Math.round((m.qualityVerified / m.assigned) * 100) : 0;
     });
 
     // Metrics for the currently selected active sprint / round
@@ -1044,12 +1061,12 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       stats: {
         grandAllocated,
         grandFinished,
-        grandBackedUp, // Final Total Reservoirs validated by backup progress
-        backupRate, // Final work progress completion percentage
-        qualityVerifiedCount,
+        grandBackedUp, // Reservoirs backed up in storage
+        backupRate, // Backup archive rate
+        qualityVerifiedCount, // Overall work progress final total reservoir based on QC Dan Verified status
+        verifiedRate, // Overall work progress final completion percentage
         pendingDanQcCount,
         completionRate,
-        verifiedRate,
         memberProgress
       },
       currentRoundMetrics: {
@@ -1416,6 +1433,10 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       showToast('QC checkpoints and verification are managed by Dr. Dan Tian or Lab Admin.');
       return;
     }
+
+    const targetRound = rounds.find(r => r.id === roundId);
+    const alloc = targetRound?.allocations.find(a => a.memberName.toLowerCase() === memberName.toLowerCase());
+
     updateRoundsAndSync(prev => prev.map(r => {
       if (r.id !== roundId) return r;
       const updatedAllocations = r.allocations.map(a => {
@@ -1441,6 +1462,17 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
 
     const label = CHECK_STATUS_CONFIG.find(s => s.key === nextStatus)?.label || nextStatus;
     showToast(`Dr. Dan Tian set ${memberName} QC status to: ${label}`);
+
+    // Automatically open comment editor when marked for Reprocessing so Dan can specify instructions
+    if (nextStatus === 'reprocessing' && targetRound && alloc) {
+      setQcCommentModal({
+        roundId,
+        roundNum: targetRound.round,
+        memberName,
+        status: 'reprocessing',
+        notes: alloc.checkNotes || ''
+      });
+    }
   };
 
   const handleCycleMemberCheckStatus = (roundId: string, memberName: string) => {
@@ -1451,6 +1483,54 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
     const currentIndex = statusOrder.indexOf(currentStatus);
     const nextStatus = statusOrder[(currentIndex + 1) % statusOrder.length];
     handleSetMemberCheckStatus(roundId, memberName, nextStatus);
+  };
+
+  // Modal: QC Reprocessing & QC Comments Editor (Dan / Admin)
+  const [qcCommentModal, setQcCommentModal] = useState<{
+    roundId: string;
+    roundNum: number | string;
+    memberName: string;
+    status: CheckStatus;
+    notes: string;
+  } | null>(null);
+
+  const handleOpenQcComment = (roundId: string, roundNum: number | string, a: MemberAllocation) => {
+    if (!canManageAssignments) {
+      showToast('QC comments are managed by Dr. Dan Tian or Lab Admin.');
+      return;
+    }
+    setQcCommentModal({
+      roundId,
+      roundNum,
+      memberName: a.memberName,
+      status: a.checkStatus || 'not_started',
+      notes: a.checkNotes || ''
+    });
+  };
+
+  const handleSaveQcComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!qcCommentModal) return;
+    const trimmed = (qcCommentModal.notes || '').trim();
+
+    updateRoundsAndSync(prev => prev.map(r => {
+      if (r.id !== qcCommentModal.roundId) return r;
+      return {
+        ...r,
+        allocations: r.allocations.map(a => {
+          if (a.memberName.toLowerCase() === qcCommentModal.memberName.toLowerCase()) {
+            return {
+              ...a,
+              checkNotes: trimmed
+            };
+          }
+          return a;
+        })
+      };
+    }));
+
+    showToast(`Saved QC comment for ${qcCommentModal.memberName}: "${trimmed || 'Cleared comment'}"`);
+    setQcCommentModal(null);
   };
 
   // =========================================================================
@@ -1793,33 +1873,34 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
         {/* Milestone Summary Metrics */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-8 pt-6 border-t border-slate-800/80">
           
-          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-slate-700/60" title="Overall work progress final total reservoir updated based on the backup progress">
+          {/* Card 1: Overall Progress based on Dan QC Verified Status */}
+          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-emerald-500/30" title="Overall work progress final total reservoir updated based on Dr. Dan Tian QC Verified status">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Database className="w-3.5 h-3.5 text-emerald-400" />
-                Final Total Reservoirs (Backed Up)
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                Overall Progress (Dan QC Verified)
               </span>
-              <span className="text-[10px] font-black uppercase text-emerald-400 bg-emerald-950/80 border border-emerald-800 px-1.5 py-0.5 rounded">
-                Backup Progress
+              <span className="text-[10px] font-black uppercase text-emerald-300 bg-emerald-950/90 border border-emerald-700/80 px-1.5 py-0.5 rounded">
+                QC Verified Status
               </span>
             </div>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl font-black text-white">
-                {stats.grandBackedUp.toLocaleString()}
+              <span className="text-2xl font-black text-emerald-400">
+                {stats.qualityVerifiedCount.toLocaleString()}
               </span>
               <span className="text-xs text-slate-400 font-medium">
-                / {stats.grandAllocated.toLocaleString()} finalized
+                / {stats.grandAllocated.toLocaleString()} certified
               </span>
             </div>
             <div className="mt-2.5 w-full bg-slate-700 rounded-full h-2 overflow-hidden">
               <div 
-                className="bg-gradient-to-r from-emerald-500 to-teal-300 h-2 rounded-full transition-all duration-500" 
-                style={{ width: `${Math.min(100, stats.backupRate)}%` }}
+                className="bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-300 h-2 rounded-full transition-all duration-500" 
+                style={{ width: `${Math.min(100, stats.verifiedRate)}%` }}
               />
             </div>
             <div className="mt-1.5 flex items-center justify-between text-[11px]">
               <span className="text-emerald-400 font-bold">
-                {stats.grandBackedUp.toLocaleString()} backed up ({stats.backupRate}%)
+                {stats.qualityVerifiedCount.toLocaleString()} verified ({stats.verifiedRate}%)
               </span>
               <span className="text-slate-400 text-[10px]">
                 {stats.grandFinished.toLocaleString()} delineated
@@ -1827,28 +1908,39 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
             </div>
           </div>
 
-          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-slate-700/60">
+          {/* Card 2: Backup Storage Progress */}
+          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-slate-700/60" title="Backup archive progress into Box cloud storage">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Dan's Quality Verified</span>
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Database className="w-3.5 h-3.5 text-teal-400" />
+                Backup Archive Progress
+              </span>
+              <span className="text-[10px] font-black uppercase text-teal-400 bg-teal-950/80 border border-teal-800 px-1.5 py-0.5 rounded">
+                Cloud Archive
+              </span>
             </div>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl font-black text-emerald-400">
-                {stats.qualityVerifiedCount.toLocaleString()}
+              <span className="text-2xl font-black text-teal-300">
+                {stats.grandBackedUp.toLocaleString()}
               </span>
               <span className="text-xs text-slate-400 font-medium">
-                / {stats.grandAllocated.toLocaleString()}
+                / {stats.grandAllocated.toLocaleString()} stored
               </span>
             </div>
             <div className="mt-2.5 w-full bg-slate-700 rounded-full h-2 overflow-hidden">
               <div 
-                className="bg-emerald-500 h-2 rounded-full transition-all duration-500" 
-                style={{ width: `${Math.min(100, stats.verifiedRate)}%` }}
+                className="bg-gradient-to-r from-teal-500 to-cyan-400 h-2 rounded-full transition-all duration-500" 
+                style={{ width: `${Math.min(100, stats.backupRate)}%` }}
               />
             </div>
-            <span className="text-[11px] text-emerald-400 font-bold mt-1.5 inline-block">
-              {stats.verifiedRate}% Certified by Dr. Dan Tian
-            </span>
+            <div className="mt-1.5 flex items-center justify-between text-[11px]">
+              <span className="text-teal-400 font-bold">
+                {stats.grandBackedUp.toLocaleString()} backed up ({stats.backupRate}%)
+              </span>
+              <span className="text-slate-400 text-[10px]">
+                Box folder synced
+              </span>
+            </div>
           </div>
 
           <div className="bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-slate-700/60">
@@ -2177,34 +2269,34 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                     </div>
                   )}
 
-                  {/* Section 2: Overall Cumulative Progress (Final Total based on Backup Progress) */}
+                  {/* Section 2: Overall Cumulative Progress (Final Total based on Dan QC Verified Status) */}
                   {(progressTab === 'combined' || progressTab === 'overall') && (
-                    <div className="mt-3 pt-2.5 border-t border-slate-200/80 space-y-1.5" title="Final total reservoir count finalized based on backup progress">
+                    <div className="mt-3 pt-2.5 border-t border-slate-200/80 space-y-1.5" title="Final overall progress confirmed by Dr. Dan Tian QC Verified status">
                       <div className="flex items-center justify-between text-[11px]">
                         <span className="font-extrabold text-emerald-800 flex items-center gap-1">
-                          <Database className="w-3 h-3 text-emerald-600" />
-                          Final Total (Backed Up):
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                          Overall Total (Dan Verified):
                         </span>
                         <span className="font-mono font-black text-emerald-900">
-                          {p.backedUp} / {p.assigned}
+                          {p.qualityVerified} / {p.assigned}
                         </span>
                       </div>
 
                       <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
                         <div 
-                          className="bg-gradient-to-r from-emerald-600 to-teal-400 h-1.5 rounded-full transition-all duration-300"
-                          style={{ width: `${Math.min(100, p.backedUpRate)}%` }}
+                          className="bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-400 h-1.5 rounded-full transition-all duration-300"
+                          style={{ width: `${Math.min(100, p.verifiedRate)}%` }}
                         />
                       </div>
 
                       <div className="flex items-center justify-between text-[10px] text-slate-500">
                         <span>Delineated: <strong className="text-slate-700">{p.finished}</strong> ({overallPct}%)</span>
-                        <span className="font-bold text-emerald-700">{p.backedUpRate}% Finalized</span>
+                        <span className="font-bold text-emerald-700">{p.verifiedRate}% Verified</span>
                       </div>
 
                       <div className="flex items-center justify-between text-[9px] text-slate-400 pt-0.5">
-                        <span>Dan QC Verified: <strong className="text-emerald-700">{p.qualityVerified}</strong></span>
-                        <span>{p.backedUpTasks} of {p.tasksCount} rounds backed up</span>
+                        <span>Box Backup: <strong className="text-teal-700">{p.backedUp}</strong> ({p.backedUpRate}%)</span>
+                        <span>{p.completedTasks} of {p.tasksCount} rounds certified</span>
                       </div>
                     </div>
                   )}
@@ -2446,18 +2538,23 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                             ))}
                           </div>
 
-                          {/* Finish Cumulative based on Backup Progress */}
+                          {/* Finish Cumulative based on Dan QC Verified Progress */}
                           {r.finishFormula && (
                             <div className="pt-1.5 border-t border-slate-100 flex flex-wrap items-center gap-1.5">
-                              {r.backupCompleted ? (
-                                <span className="text-[11px] font-black text-emerald-900 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300 flex items-center gap-1 shadow-2xs" title="Final cumulative total confirmed and archived by backup completion">
-                                  <Database className="w-3 h-3 text-emerald-700" />
-                                  {r.finishFormula} (✓ Backed Up)
+                              {r.checkCompleted ? (
+                                <span className="text-[11px] font-black text-emerald-900 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300 flex items-center gap-1 shadow-2xs" title="Final cumulative total confirmed by Dr. Dan Tian QC Verification">
+                                  <ShieldCheck className="w-3 h-3 text-emerald-700" />
+                                  {r.finishFormula} (✓ Dan QC Verified)
+                                </span>
+                              ) : r.backupCompleted ? (
+                                <span className="text-[11px] font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200 flex items-center gap-1" title="Backed up to Box, pending Dan QC certification">
+                                  <Database className="w-3 h-3 text-teal-600" />
+                                  {r.finishFormula} (Backed Up · Pending Dan QC)
                                 </span>
                               ) : (
-                                <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 flex items-center gap-1" title="Target finish. Final overall total updates when this round is backed up.">
+                                <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 flex items-center gap-1" title="Target finish. Final overall total updates when this round is Dan QC Verified.">
                                   <span className="w-2 h-2 rounded-full border border-slate-400 bg-white" />
-                                  {r.finishFormula} (Backup Pending)
+                                  {r.finishFormula} (QC Pending)
                                 </span>
                               )}
                             </div>
@@ -2818,7 +2915,9 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                                           ✓
                                         </div>
                                       ) : a.checkStatus === 'reprocessing' ? (
-                                        <div className="w-4 h-4 rounded-full bg-sky-500 border border-sky-600 shadow-xs" />
+                                        <div className="w-4 h-4 rounded-full bg-sky-500 border border-sky-600 shadow-xs flex items-center justify-center text-white text-[8px] font-bold">
+                                          ↺
+                                        </div>
                                       ) : a.checkStatus === 'in_progress' ? (
                                         <div className="w-4 h-4 rounded-full bg-amber-500 border border-amber-600 shadow-xs" />
                                       ) : (
@@ -2842,6 +2941,29 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                                         title="Select Dan QC status directly"
                                       >
                                         <ChevronDown className="w-2.5 h-2.5" />
+                                      </button>
+                                    )}
+
+                                    {/* Quick QC Comment button for Dan / Admin */}
+                                    {canManageAssignments && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleOpenQcComment(r.id, r.round, a);
+                                        }}
+                                        className={`p-0.5 rounded cursor-pointer transition-colors ${
+                                          a.checkNotes 
+                                            ? 'text-sky-600 hover:text-sky-800 hover:bg-sky-50' 
+                                            : 'text-slate-300 hover:text-sky-600 hover:bg-slate-100'
+                                        }`}
+                                        title={a.checkNotes ? `QC Comment: "${a.checkNotes}" — Click to edit` : "Add QC/Reprocessing comment"}
+                                      >
+                                        {a.checkNotes ? (
+                                          <MessageSquare className="w-3 h-3 fill-sky-100" />
+                                        ) : (
+                                          <MessageSquarePlus className="w-3 h-3" />
+                                        )}
                                       </button>
                                     )}
                                   </div>
@@ -2901,17 +3023,68 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                                   </div>
                                 </div>
 
-                                {/* Optional QA note */}
-                                {a.checkNotes && (
-                                  <div className="pl-5 text-[10px] text-slate-500 italic truncate" title={a.checkNotes}>
-                                    {a.checkNotes}
+                                {/* Prominent Reprocessing Callout Banner & Instructions */}
+                                {a.checkStatus === 'reprocessing' ? (
+                                  <div className="mt-1 ml-5 p-1.5 rounded-lg bg-sky-50 border border-sky-200 text-[10px] text-sky-950 shadow-2xs space-y-1">
+                                    <div className="flex items-center justify-between gap-1">
+                                      <span className="font-black text-sky-800 flex items-center gap-1 text-[9px] uppercase tracking-wider">
+                                        <RotateCcw className="w-2.5 h-2.5 text-sky-600" />
+                                        Reprocessing Required
+                                      </span>
+                                      {canManageAssignments && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleOpenQcComment(r.id, r.round, a)}
+                                          className="text-sky-600 hover:text-sky-800 p-0.5 rounded cursor-pointer"
+                                          title="Edit Dan QC Instructions"
+                                        >
+                                          <Edit3 className="w-2.5 h-2.5" />
+                                        </button>
+                                      )}
+                                    </div>
+                                    {a.checkNotes ? (
+                                      <p className="text-[10px] text-sky-950 leading-snug font-medium break-words bg-white/80 p-1 rounded border border-sky-100">
+                                        "{a.checkNotes}"
+                                      </p>
+                                    ) : (
+                                      canManageAssignments ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleOpenQcComment(r.id, r.round, a)}
+                                          className="text-[9px] font-bold text-sky-700 hover:text-sky-900 underline flex items-center gap-1 cursor-pointer"
+                                        >
+                                          <MessageSquarePlus className="w-2.5 h-2.5" />
+                                          + Add Reprocessing Instructions
+                                        </button>
+                                      ) : (
+                                        <p className="text-[9px] text-sky-600 italic">
+                                          Awaiting instructions from Dr. Dan Tian...
+                                        </p>
+                                      )
+                                    )}
                                   </div>
-                                )}
+                                ) : a.checkNotes ? (
+                                  <div className="mt-1 ml-5 p-1 rounded bg-slate-50 border border-slate-200 text-[10px] text-slate-600 flex items-start justify-between gap-1">
+                                    <p className="italic truncate" title={a.checkNotes}>
+                                      QC Note: "{a.checkNotes}"
+                                    </p>
+                                    {canManageAssignments && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenQcComment(r.id, r.round, a)}
+                                        className="text-slate-400 hover:text-slate-700 shrink-0 p-0.5"
+                                        title="Edit QC Comment"
+                                      >
+                                        <Edit3 className="w-2.5 h-2.5" />
+                                      </button>
+                                    )}
+                                  </div>
+                                ) : null}
 
                                 {/* Floating popover for Dan / Admin to select exact QC status */}
                                 {isMenuOpen && (
                                   <div 
-                                    className="absolute left-0 top-full z-40 mt-1 bg-white rounded-xl shadow-2xl border border-slate-200 p-2 space-y-1 min-w-[210px] animate-in fade-in zoom-in-95"
+                                    className="absolute left-0 top-full z-40 mt-1 bg-white rounded-xl shadow-2xl border border-slate-200 p-2 space-y-1 min-w-[220px] animate-in fade-in zoom-in-95"
                                     onClick={(e) => e.stopPropagation()}
                                   >
                                     <div className="text-[10px] font-black text-slate-400 px-2 py-0.5 uppercase tracking-wider">
@@ -2936,6 +3109,20 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                                         {a.checkStatus === s.key && <Check className="w-3.5 h-3.5 ml-auto text-emerald-600" />}
                                       </button>
                                     ))}
+
+                                    <div className="pt-1 mt-1 border-t border-slate-100">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setCheckStatusMenu(null);
+                                          handleOpenQcComment(r.id, r.round, a);
+                                        }}
+                                        className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-bold text-sky-700 bg-sky-50 hover:bg-sky-100 transition-colors cursor-pointer"
+                                      >
+                                        <MessageSquarePlus className="w-3 h-3 text-sky-600" />
+                                        <span>{a.checkNotes ? 'Edit Reprocessing Comment' : '+ Add Reprocessing Comment'}</span>
+                                      </button>
+                                    </div>
                                   </div>
                                 )}
                               </div>
@@ -3907,6 +4094,132 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
               </div>
 
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          QC & REPROCESSING COMMENTS MODAL (DR. DAN TIAN & ADMIN)
+          ========================================================================= */}
+      {qcCommentModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div 
+            className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all animate-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-slate-800 to-sky-950 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-sky-500/20 border border-sky-400/30 flex items-center justify-center text-sky-300">
+                  <RotateCcw className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-white flex items-center gap-2">
+                    QC & Reprocessing Instructions
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-sky-900/80 text-sky-300 border border-sky-700/60 px-2 py-0.5 rounded-full">
+                      Round {qcCommentModal.roundNum}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-300">
+                    Researcher: <strong className="text-white">{qcCommentModal.memberName}</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQcCommentModal(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Form Body */}
+            <form onSubmit={handleSaveQcComment} className="p-6 space-y-4">
+              <div className="bg-sky-50/70 border border-sky-200/80 rounded-xl p-3 text-[11px] text-sky-900 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-sky-950">
+                  <ShieldCheck className="w-3.5 h-3.5 text-sky-700" />
+                  Dr. Dan Tian QC Guidance
+                </div>
+                <p className="text-sky-800 leading-relaxed">
+                  Provide specific feedback for <strong>{qcCommentModal.memberName}</strong> so they know exactly what needs refinement before final certification.
+                </p>
+              </div>
+
+              {/* Quick Preset Chips */}
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                  Quick ERSL Preset Feedback (Click to append):
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    'SAR water threshold check',
+                    'Boundary polygon adjustment',
+                    'Missing small waterbodies (<0.01 km²)',
+                    'Remove terrain shadow false-positives',
+                    'Check tributary disconnection',
+                    'Verify optical vs SAR multi-sensor dates'
+                  ].map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        const current = qcCommentModal.notes || '';
+                        const next = current ? `${current}; ${preset}` : preset;
+                        setQcCommentModal({ ...qcCommentModal, notes: next });
+                      }}
+                      className="text-[10px] font-medium bg-slate-100 hover:bg-sky-50 hover:text-sky-800 hover:border-sky-300 border border-slate-200 text-slate-700 px-2 py-1 rounded-md transition-colors cursor-pointer"
+                    >
+                      + {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Textarea */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Specific QC Instructions / Notes:
+                </label>
+                <textarea
+                  autoFocus
+                  rows={4}
+                  value={qcCommentModal.notes}
+                  onChange={(e) => setQcCommentModal({ ...qcCommentModal, notes: e.target.value })}
+                  placeholder="e.g., Round 8 sub-basin 3094: boundary adjustment required along northern tributary. SAR threshold seems over-extracted on steep slope..."
+                  className="w-full p-3 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none transition-all leading-relaxed"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="pt-2 flex items-center justify-between border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setQcCommentModal({ ...qcCommentModal, notes: '' })}
+                  className="text-xs text-slate-500 hover:text-red-600 font-semibold cursor-pointer"
+                >
+                  Clear Notes
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setQcCommentModal(null)}
+                    className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 text-xs font-extrabold text-white bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-700 hover:to-blue-800 rounded-xl shadow-md transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Check className="w-3.5 h-3.5 stroke-[3]" />
+                    Save Instructions
+                  </button>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       )}
