@@ -508,8 +508,8 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
   // View Mode: 'protocol' (Table 2 Format Table) vs 'matrix' (Member Columns Grid)
   const [viewMode, setViewMode] = useState<'protocol' | 'matrix'>('protocol');
 
-  // Team Progress Display Tab: 'combined' (Both Round & Overall) vs 'round' vs 'overall'
-  const [progressTab, setProgressTab] = useState<'combined' | 'round' | 'overall'>('combined');
+  // Team Progress Display Tab: 'combined' (All Views) vs 'round' vs 'overall' (Dan Verified) vs 'finished' (Finished Reservoirs)
+  const [progressTab, setProgressTab] = useState<'combined' | 'round' | 'overall' | 'finished'>('combined');
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -933,6 +933,7 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
       backedUp: number;
       backedUpRate: number;
       qualityVerified: number;
+      verifiedRate: number;
       pendingQc: number;
       tasksCount: number;
       completedTasks: number;
@@ -1870,11 +1871,68 @@ export const ReservoirProject: React.FC<{ currentUser: User }> = ({ currentUser 
           </div>
         </div>
 
-        {/* Milestone Summary Metrics */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-8 pt-6 border-t border-slate-800/80">
+        {/* Milestone Summary Metrics (Clickable Tabs) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 mt-8 pt-6 border-t border-slate-800/80">
           
-          {/* Card 1: Overall Progress based on Dan QC Verified Status */}
-          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-emerald-500/30" title="Overall work progress final total reservoir updated based on Dr. Dan Tian QC Verified status">
+          {/* Card 1: Total Samples Done (Delineated Total from Table Footer) */}
+          <div 
+            onClick={() => {
+              setProgressTab('finished');
+              showToast('Switched to Total Samples Done progress view');
+            }}
+            className={`bg-slate-800/50 backdrop-blur rounded-xl p-4 border transition-all cursor-pointer hover:bg-slate-800/80 ${
+              progressTab === 'finished' 
+                ? 'border-cyan-400 ring-2 ring-cyan-400/40 shadow-lg shadow-cyan-950/50 bg-slate-800/90' 
+                : 'border-cyan-500/30 hover:border-cyan-400/60'
+            }`} 
+            title="Total Samples Done delineated by team across all rounds (matches table bottom footer total). Click to view individual breakdown."
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-cyan-300 uppercase tracking-wider flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
+                Total Samples Done
+              </span>
+              <span className="text-[10px] font-black uppercase text-cyan-300 bg-cyan-950/90 border border-cyan-700/80 px-1.5 py-0.5 rounded">
+                Delineated Total
+              </span>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-black text-cyan-300">
+                {stats.grandFinished.toLocaleString()}
+              </span>
+              <span className="text-xs text-slate-400 font-medium">
+                / {stats.grandAllocated.toLocaleString()} done
+              </span>
+            </div>
+            <div className="mt-2.5 w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+              <div 
+                className="bg-gradient-to-r from-cyan-500 via-sky-400 to-blue-400 h-2 rounded-full transition-all duration-500" 
+                style={{ width: `${Math.min(100, stats.completionRate)}%` }}
+              />
+            </div>
+            <div className="mt-1.5 flex items-center justify-between text-[11px]">
+              <span className="text-cyan-400 font-bold">
+                {stats.grandFinished.toLocaleString()} finished ({stats.completionRate}%)
+              </span>
+              <span className="text-slate-400 text-[10px]">
+                Table Footer Total
+              </span>
+            </div>
+          </div>
+
+          {/* Card 2: Overall Progress based on Dan QC Verified Status */}
+          <div 
+            onClick={() => {
+              setProgressTab('overall');
+              showToast('Switched to Overall Dan Verified progress view');
+            }}
+            className={`bg-slate-800/50 backdrop-blur rounded-xl p-4 border transition-all cursor-pointer hover:bg-slate-800/80 ${
+              progressTab === 'overall' 
+                ? 'border-emerald-400 ring-2 ring-emerald-400/40 shadow-lg shadow-emerald-950/50 bg-slate-800/90' 
+                : 'border-emerald-500/30 hover:border-emerald-400/60'
+            }`} 
+            title="Overall work progress final total reservoir updated based on Dr. Dan Tian QC Verified status. Click to view individual breakdown."
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
@@ -2075,14 +2133,32 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-5">
         <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 pb-3 gap-3">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <TrendingUp className="w-5 h-5 text-[#9E1B32]" />
               <h2 className="text-sm font-black text-slate-900 uppercase tracking-wider">
                 Individual Researcher Progress Matrix: Sprint vs. Overall
               </h2>
+              {progressTab === 'finished' && (
+                <span className="text-[10px] font-black uppercase tracking-wider text-cyan-800 bg-cyan-100 border border-cyan-300 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-cyan-600" />
+                  Table Bottom Total: {stats.grandFinished.toLocaleString()} / {stats.grandAllocated.toLocaleString()} ({stats.completionRate}%) Finished
+                </span>
+              )}
+              {progressTab === 'overall' && (
+                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                  Dan QC Total: {stats.qualityVerifiedCount.toLocaleString()} / {stats.grandAllocated.toLocaleString()} ({stats.verifiedRate}%) Certified
+                </span>
+              )}
+              {progressTab === 'round' && (
+                <span className="text-[10px] font-black uppercase tracking-wider text-[#9E1B32] bg-red-100 border border-red-200 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                  <Calendar className="w-3 h-3 text-[#9E1B32]" />
+                  Round {activeSprintRound} Sprint Focus
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Track both current sprint (assigned week) processing and overall lab accomplishments for each researcher.
+              Track current sprint processing, Dr. Dan Tian QC verified certification, and overall finished reservoirs delineated by each researcher.
             </p>
           </div>
 
@@ -2137,7 +2213,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
             </div>
 
             {/* View Tabs */}
-            <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-bold">
+            <div className="flex flex-wrap items-center bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-bold gap-1">
               <button
                 type="button"
                 onClick={() => setProgressTab('combined')}
@@ -2146,9 +2222,9 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                     ? 'bg-white text-[#9E1B32] shadow-xs font-black'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
-                title="View Both Current Assigned Week Progress and Overall Cumulative Progress"
+                title="View All Views: Current Week Sprint, Dan QC Verified, and Finished Reservoirs"
               >
-                Dual View (Both: Overall + Week)
+                Dual View (Combined)
               </button>
               <button
                 type="button"
@@ -2158,19 +2234,35 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                     ? 'bg-white text-[#9E1B32] shadow-xs font-black'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
+                title={`View Round ${activeSprintRound} Sprint Progress only`}
               >
                 Round {activeSprintRound} Progress
               </button>
               <button
                 type="button"
                 onClick={() => setProgressTab('overall')}
-                className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
+                className={`px-3 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
                   progressTab === 'overall'
-                    ? 'bg-white text-[#9E1B32] shadow-xs font-black'
+                    ? 'bg-white text-emerald-800 shadow-xs font-black'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
+                title="Overall Progress confirmed by Dr. Dan Tian QC Verified status"
               >
-                Overall Cumulative
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                Overall Progress (Dan Verified)
+              </button>
+              <button
+                type="button"
+                onClick={() => setProgressTab('finished')}
+                className={`px-3 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+                  progressTab === 'finished'
+                    ? 'bg-white text-cyan-800 shadow-xs font-black'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Total Samples Done delineated by researchers (Matches table bottom total)"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-cyan-600" />
+                Total Samples Done
               </button>
             </div>
           </div>
@@ -2297,6 +2389,38 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                       <div className="flex items-center justify-between text-[9px] text-slate-400 pt-0.5">
                         <span>Box Backup: <strong className="text-teal-700">{p.backedUp}</strong> ({p.backedUpRate}%)</span>
                         <span>{p.completedTasks} of {p.tasksCount} rounds certified</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Section 3: Total Samples Done (Table bottom total - Delineated Samples Done) */}
+                  {(progressTab === 'combined' || progressTab === 'finished') && (
+                    <div className="mt-3 pt-2.5 border-t border-slate-200/80 space-y-1.5" title="Total samples delineated & completed by member (matches table bottom total)">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-extrabold text-cyan-800 flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-cyan-600" />
+                          Total Samples Done:
+                        </span>
+                        <span className="font-mono font-black text-cyan-900">
+                          {p.finished} / {p.assigned}
+                        </span>
+                      </div>
+
+                      <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-cyan-600 via-sky-500 to-blue-500 h-1.5 rounded-full transition-all duration-300"
+                          style={{ width: `${Math.min(100, overallPct)}%` }}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-500">
+                        <span>Delineated: <strong className="text-cyan-800">{p.finished}</strong></span>
+                        <span className="font-bold text-cyan-700">{overallPct}% Completed</span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[9px] text-slate-400 pt-0.5">
+                        <span>Dan Verified: <strong className="text-emerald-700">{p.qualityVerified}</strong> ({p.verifiedRate}%)</span>
+                        <span>Remaining: {Math.max(0, p.assigned - p.finished)}</span>
                       </div>
                     </div>
                   )}
