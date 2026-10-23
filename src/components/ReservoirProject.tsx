@@ -2548,14 +2548,14 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[1100px]">
+            <table className="w-full text-left border-collapse min-w-[1550px]">
               <thead>
                 <tr className="bg-slate-100 text-slate-800 text-xs font-black border-b border-slate-200">
-                  <th className="py-3.5 px-3 w-16 text-center border-r border-slate-200">Round</th>
-                  <th className="py-3.5 px-4 w-64 border-r border-slate-200">Basin & Cumulative Finish</th>
+                  <th className="sticky left-0 z-30 bg-slate-100 py-3.5 px-3 w-20 min-w-[80px] max-w-[80px] text-center border-r border-slate-200 shadow-[3px_0_6px_-2px_rgba(0,0,0,0.08)]">Round</th>
+                  <th className="py-3.5 px-4 w-72 min-w-[280px] border-r border-slate-200">Basin & Cumulative Finish</th>
                   
                   {/* REQUIREMENT 1: Number (Member Workload) */}
-                  <th className="py-3.5 px-4 min-w-[280px] border-r border-slate-200">
+                  <th className="py-3.5 px-4 w-72 min-w-[280px] border-r border-slate-200">
                     <div className="flex items-center justify-between">
                       <span>Number (Member Workload)</span>
                       {canManageAssignments && (
@@ -2567,7 +2567,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                   </th>
 
                   {/* REQUIREMENT 2 & 3: Delivery Date (Spelling Corrected) */}
-                  <th className="py-3.5 px-3 min-w-[170px] border-r border-slate-200">
+                  <th className="py-3.5 px-3 w-48 min-w-[190px] border-r border-slate-200">
                     <div className="flex items-center justify-between">
                       <span>Delivery Date</span>
                       <span className="text-[9px] text-slate-400 font-normal">Member-wise</span>
@@ -2575,7 +2575,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                   </th>
 
                   {/* REQUIREMENT 3: Collect Date */}
-                  <th className="py-3.5 px-3 min-w-[170px] border-r border-slate-200">
+                  <th className="py-3.5 px-3 w-48 min-w-[190px] border-r border-slate-200">
                     <div className="flex items-center justify-between">
                       <span>Collect Date</span>
                       <span className="text-[9px] text-slate-400 font-normal">Member-wise</span>
@@ -2583,7 +2583,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                   </th>
 
                   {/* REQUIREMENT 3: Check Date (QC Check Data) */}
-                  <th className="py-3.5 px-3 min-w-[230px] border-r border-slate-200">
+                  <th className="py-3.5 px-3 w-[420px] min-w-[380px] border-r border-slate-200">
                     <div className="flex items-center justify-between">
                       <span>Check Date</span>
                       <span className="text-[9px] text-purple-700 font-bold uppercase bg-purple-50 px-1 rounded">
@@ -2593,7 +2593,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                   </th>
 
                   {/* REQUIREMENT 3: Backup Date */}
-                  <th className="py-3.5 px-3 min-w-[160px] border-r border-slate-200">
+                  <th className="py-3.5 px-3 w-44 min-w-[170px] border-r border-slate-200">
                     <div className="flex items-center justify-between">
                       <span>Backup Date</span>
                       <span className="text-[9px] text-slate-400 font-normal">Member-wise</span>
@@ -2601,7 +2601,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                   </th>
 
                   {isAdmin && (
-                    <th className="py-3.5 px-2 w-12 text-center text-slate-400">Actions</th>
+                    <th className="py-3.5 px-2 w-16 min-w-[64px] text-center text-slate-400">Actions</th>
                   )}
                 </tr>
               </thead>
@@ -2624,8 +2624,14 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                           isAllMembersVerified ? 'bg-emerald-50/20' : index % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'
                         }`}
                       >
-                        {/* 1. Round */}
-                        <td className="py-4 px-3 text-center font-black text-sm text-slate-900 border-r border-slate-200 align-top">
+                        {/* 1. Round (Sticky column during horizontal scroll) */}
+                        <td className={`sticky left-0 z-20 py-4 px-3 w-20 min-w-[80px] max-w-[80px] text-center font-black text-sm text-slate-900 border-r border-slate-200 align-top shadow-[3px_0_6px_-2px_rgba(0,0,0,0.08)] ${
+                          isAllMembersVerified 
+                            ? 'bg-[#ecfdf5]' 
+                            : index % 2 === 0 
+                              ? 'bg-white' 
+                              : 'bg-[#f8fafc]'
+                        }`}>
                           <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full font-black border ${
                             Number(r.round) === activeSprintRound 
                               ? 'bg-[#9E1B32] text-white border-red-700 shadow-sm'
@@ -2636,7 +2642,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                         </td>
 
                         {/* 2. Basin */}
-                        <td className="py-4 px-4 border-r border-slate-200 align-top space-y-2">
+                        <td className="py-4 px-4 w-72 min-w-[280px] border-r border-slate-200 align-top space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="font-extrabold text-slate-900 text-xs">
                               {r.basinTotalText}
@@ -2698,7 +2704,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                             - Dan QC and double tick mark REMOVED from this column
                             - Members can only edit their work progress number (finishedCount)
                             ========================================================================= */}
-                        <td className="py-4 px-4 border-r border-slate-200 align-top space-y-2">
+                        <td className="py-4 px-4 w-72 min-w-[280px] border-r border-slate-200 align-top space-y-2">
                           <div className="space-y-1.5">
                             {r.allocations.map((a, aIdx) => {
                               const isMemberHighlighted = filterMember !== 'all' && a.memberName.toLowerCase().includes(filterMember.toLowerCase());
@@ -2780,7 +2786,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                             - Dan/Admin only can toggle status or change date
                             - When marked green, triggers auto-selection of active sprint based on delivery date + Dual View!
                             ========================================================================= */}
-                        <td className="py-4 px-3 border-r border-slate-200 align-top space-y-1.5">
+                        <td className="py-4 px-3 w-48 min-w-[190px] border-r border-slate-200 align-top space-y-1.5">
                           {r.allocations.map((a, aIdx) => (
                             <div key={aIdx} className="flex items-center justify-between gap-1.5 p-1 rounded hover:bg-slate-100/70 transition-colors">
                               <div className="flex items-center gap-1.5 min-w-0">
@@ -2905,7 +2911,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                               🟢 Solid green circle (collected)
                             - Dan/Admin only can toggle status or change date
                             ========================================================================= */}
-                        <td className="py-4 px-3 border-r border-slate-200 align-top space-y-1.5">
+                        <td className="py-4 px-3 w-48 min-w-[190px] border-r border-slate-200 align-top space-y-1.5">
                           {r.allocations.map((a, aIdx) => (
                             <div key={aIdx} className="flex items-center justify-between gap-1.5 p-1 rounded hover:bg-slate-100/70 transition-colors">
                               <div className="flex items-center gap-1.5 min-w-0">
@@ -3010,7 +3016,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                               🟢 Solid green circle (Dan QC verified)
                             - Dan/Admin only can edit status, date, or notes
                             ========================================================================= */}
-                        <td className="py-4 px-3 border-r border-slate-200 align-top space-y-1.5">
+                        <td className="py-4 px-3 w-[420px] min-w-[380px] border-r border-slate-200 align-top space-y-1.5">
                           {r.allocations.map((a, aIdx) => {
                             const statusConfig = CHECK_STATUS_CONFIG.find(s => s.key === a.checkStatus) || CHECK_STATUS_CONFIG[0];
                             const isMenuOpen = checkStatusMenu?.roundId === r.id && checkStatusMenu?.memberName === a.memberName;
@@ -3150,33 +3156,33 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
 
                                 {/* Prominent Reprocessing Callout Banner & Instructions */}
                                 {a.checkStatus === 'reprocessing' ? (
-                                  <div className="mt-1 ml-5 p-1.5 rounded-lg bg-sky-50 border border-sky-200 text-[10px] text-sky-950 shadow-2xs space-y-1">
-                                    <div className="flex items-center justify-between gap-1">
-                                      <span className="font-black text-sky-800 flex items-center gap-1 text-[9px] uppercase tracking-wider">
-                                        <RotateCcw className="w-2.5 h-2.5 text-sky-600" />
+                                  <div className="mt-1.5 ml-4 p-2.5 rounded-lg bg-sky-50/90 border border-sky-200 text-[10px] text-sky-950 shadow-2xs space-y-1.5">
+                                    <div className="flex items-center justify-between gap-1 pb-1 border-b border-sky-200/60">
+                                      <span className="font-black text-sky-900 flex items-center gap-1.5 text-[9px] uppercase tracking-wider">
+                                        <RotateCcw className="w-3 h-3 text-sky-600" />
                                         Reprocessing Required
                                       </span>
                                       {canManageAssignments && (
                                         <button
                                           type="button"
                                           onClick={() => handleOpenQcComment(r.id, r.round, a)}
-                                          className="text-sky-600 hover:text-sky-800 p-0.5 rounded cursor-pointer"
+                                          className="text-sky-700 hover:text-sky-950 p-0.5 rounded cursor-pointer hover:bg-sky-100 transition-colors"
                                           title="Edit Dan QC Instructions"
                                         >
-                                          <Edit3 className="w-2.5 h-2.5" />
+                                          <Edit3 className="w-3 h-3" />
                                         </button>
                                       )}
                                     </div>
                                     {a.checkNotes ? (
-                                      <p className="text-[10px] text-sky-950 leading-snug font-medium break-words bg-white/80 p-1 rounded border border-sky-100">
-                                        "{a.checkNotes}"
-                                      </p>
+                                      <div className="text-[10px] text-slate-900 leading-relaxed font-sans bg-white p-2 rounded-md border border-sky-200/80 shadow-2xs whitespace-pre-wrap break-words max-h-72 overflow-y-auto select-text">
+                                        {a.checkNotes}
+                                      </div>
                                     ) : (
                                       canManageAssignments ? (
                                         <button
                                           type="button"
                                           onClick={() => handleOpenQcComment(r.id, r.round, a)}
-                                          className="text-[9px] font-bold text-sky-700 hover:text-sky-900 underline flex items-center gap-1 cursor-pointer"
+                                          className="text-[9px] font-bold text-sky-700 hover:text-sky-900 underline flex items-center gap-1 cursor-pointer py-0.5"
                                         >
                                           <MessageSquarePlus className="w-2.5 h-2.5" />
                                           + Add Reprocessing Instructions
@@ -3189,20 +3195,26 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                                     )}
                                   </div>
                                 ) : a.checkNotes ? (
-                                  <div className="mt-1 ml-5 p-1 rounded bg-slate-50 border border-slate-200 text-[10px] text-slate-600 flex items-start justify-between gap-1">
-                                    <p className="italic truncate" title={a.checkNotes}>
-                                      QC Note: "{a.checkNotes}"
-                                    </p>
-                                    {canManageAssignments && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleOpenQcComment(r.id, r.round, a)}
-                                        className="text-slate-400 hover:text-slate-700 shrink-0 p-0.5"
-                                        title="Edit QC Comment"
-                                      >
-                                        <Edit3 className="w-2.5 h-2.5" />
-                                      </button>
-                                    )}
+                                  <div className="mt-1.5 ml-4 p-2 rounded-lg bg-slate-50 border border-slate-200 text-[10px] text-slate-800 space-y-1 shadow-2xs">
+                                    <div className="flex items-center justify-between gap-1 pb-0.5 border-b border-slate-200/60">
+                                      <span className="font-bold text-slate-600 text-[9px] uppercase tracking-wider flex items-center gap-1">
+                                        <MessageSquare className="w-2.5 h-2.5 text-slate-500" />
+                                        QC Note
+                                      </span>
+                                      {canManageAssignments && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleOpenQcComment(r.id, r.round, a)}
+                                          className="text-slate-400 hover:text-slate-700 shrink-0 p-0.5 rounded cursor-pointer hover:bg-slate-200 transition-colors"
+                                          title="Edit QC Comment"
+                                        >
+                                          <Edit3 className="w-2.5 h-2.5" />
+                                        </button>
+                                      )}
+                                    </div>
+                                    <div className="text-[10px] text-slate-900 leading-relaxed font-sans bg-white p-1.5 rounded border border-slate-200/80 whitespace-pre-wrap break-words max-h-56 overflow-y-auto select-text">
+                                      {a.checkNotes}
+                                    </div>
                                   </div>
                                 ) : null}
 
@@ -3262,7 +3274,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                               🟢 Solid green circle (backed up)
                             - Dan/Admin only can toggle status or change date
                             ========================================================================= */}
-                        <td className="py-4 px-3 border-r border-slate-200 align-top space-y-1.5">
+                        <td className="py-4 px-3 w-44 min-w-[170px] border-r border-slate-200 align-top space-y-1.5">
                           {r.allocations.map((a, aIdx) => (
                             <div key={aIdx} className="flex items-center justify-between gap-1.5 p-1 rounded hover:bg-slate-100/70 transition-colors">
                               <div className="flex items-center gap-1.5 min-w-0">
@@ -3359,7 +3371,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
 
                         {/* 8. Admin Edit */}
                         {isAdmin && (
-                          <td className="py-4 px-2 text-center align-top">
+                          <td className="py-4 px-2 w-16 min-w-[64px] text-center align-top">
                             <button
                               type="button"
                               onClick={() => handleOpenEditRound(r)}
@@ -3447,11 +3459,11 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[900px]">
+            <table className="w-full text-left border-collapse min-w-[1000px]">
               <thead>
                 <tr className="bg-slate-100 text-slate-800 text-xs font-black border-b border-slate-200">
-                  <th className="py-3 px-4 w-20">Round</th>
-                  <th className="py-3 px-4">Basin</th>
+                  <th className="sticky left-0 z-20 bg-slate-100 py-3 px-4 w-24 min-w-[96px] max-w-[96px] text-left border-r border-slate-200 shadow-[3px_0_6px_-2px_rgba(0,0,0,0.08)]">Round</th>
+                  <th className="py-3 px-4 w-64 min-w-[240px]">Basin</th>
                   {matrixMemberNames.map(m => (
                     <th key={m} className="py-3 px-4 border-l border-slate-200 min-w-[140px]">
                       {m}
@@ -3462,12 +3474,14 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
               </thead>
 
               <tbody className="divide-y divide-slate-200 text-xs">
-                {filteredRounds.map((r) => (
+                {filteredRounds.map((r, index) => (
                   <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-3.5 px-4 font-black text-slate-900">
+                    <td className={`sticky left-0 z-10 py-3.5 px-4 w-24 min-w-[96px] max-w-[96px] font-black text-slate-900 border-r border-slate-200 shadow-[3px_0_6px_-2px_rgba(0,0,0,0.08)] ${
+                      index % 2 === 0 ? 'bg-white' : 'bg-slate-50'
+                    }`}>
                       Round {r.round}
                     </td>
-                    <td className="py-3.5 px-4">
+                    <td className="py-3.5 px-4 w-64 min-w-[240px]">
                       <div className="font-bold text-slate-800">{r.basinTotalText}</div>
                       <div className="text-[11px] text-slate-500">{r.subBasins[0]}</div>
                     </td>
@@ -4275,7 +4289,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
               {/* Quick Preset Chips */}
               <div>
                 <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
-                  Quick ERSL Preset Feedback (Click to append):
+                  Quick ERSL Preset Feedback (Click to append on new line):
                 </label>
                 <div className="flex flex-wrap gap-1.5">
                   {[
@@ -4291,7 +4305,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                       type="button"
                       onClick={() => {
                         const current = qcCommentModal.notes || '';
-                        const next = current ? `${current}; ${preset}` : preset;
+                        const next = current ? `${current}\n• ${preset}` : `• ${preset}`;
                         setQcCommentModal({ ...qcCommentModal, notes: next });
                       }}
                       className="text-[10px] font-medium bg-slate-100 hover:bg-sky-50 hover:text-sky-800 hover:border-sky-300 border border-slate-200 text-slate-700 px-2 py-1 rounded-md transition-colors cursor-pointer"
@@ -4305,15 +4319,15 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
               {/* Textarea */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Specific QC Instructions / Notes:
+                  Specific QC Instructions / Notes (Preserves line-breaks verbatim):
                 </label>
                 <textarea
                   autoFocus
-                  rows={4}
+                  rows={8}
                   value={qcCommentModal.notes}
                   onChange={(e) => setQcCommentModal({ ...qcCommentModal, notes: e.target.value })}
-                  placeholder="e.g., Round 8 sub-basin 3094: boundary adjustment required along northern tributary. SAR threshold seems over-extracted on steep slope..."
-                  className="w-full p-3 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none transition-all leading-relaxed"
+                  placeholder={`Add cutoff:\n49 (optical)\n226 (optical, downstream)\n317 (downstream)\n325 (upstream)\n\nthresholding\n1650 (LS overestimate)\n\nMissing output\n543 (SAR), 784 (S2)`}
+                  className="w-full p-3 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none transition-all leading-relaxed font-sans whitespace-pre-wrap"
                 />
               </div>
 
