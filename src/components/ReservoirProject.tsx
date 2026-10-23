@@ -2551,8 +2551,8 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
             <table className="w-full text-left border-collapse min-w-[1550px]">
               <thead>
                 <tr className="bg-slate-100 text-slate-800 text-xs font-black border-b border-slate-200">
-                  <th className="sticky left-0 z-30 bg-slate-100 py-3.5 px-3 w-20 min-w-[80px] max-w-[80px] text-center border-r border-slate-200 shadow-[3px_0_6px_-2px_rgba(0,0,0,0.08)]">Round</th>
-                  <th className="py-3.5 px-4 w-72 min-w-[280px] border-r border-slate-200">Basin & Cumulative Finish</th>
+                  <th className="sticky left-0 z-30 bg-slate-100 py-3.5 px-3 w-20 min-w-[80px] max-w-[80px] text-center border-r border-slate-200">Round</th>
+                  <th className="sticky left-[80px] z-30 bg-slate-100 py-3.5 px-4 w-72 min-w-[288px] max-w-[288px] border-r border-slate-200 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.08)]">Basin & Cumulative Finish</th>
                   
                   {/* REQUIREMENT 1: Number (Member Workload) */}
                   <th className="py-3.5 px-4 w-72 min-w-[280px] border-r border-slate-200">
@@ -2625,7 +2625,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                         }`}
                       >
                         {/* 1. Round (Sticky column during horizontal scroll) */}
-                        <td className={`sticky left-0 z-20 py-4 px-3 w-20 min-w-[80px] max-w-[80px] text-center font-black text-sm text-slate-900 border-r border-slate-200 align-top shadow-[3px_0_6px_-2px_rgba(0,0,0,0.08)] ${
+                        <td className={`sticky left-0 z-20 py-4 px-3 w-20 min-w-[80px] max-w-[80px] text-center font-black text-sm text-slate-900 border-r border-slate-200 align-top ${
                           isAllMembersVerified 
                             ? 'bg-[#ecfdf5]' 
                             : index % 2 === 0 
@@ -2641,8 +2641,14 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
                           </span>
                         </td>
 
-                        {/* 2. Basin */}
-                        <td className="py-4 px-4 w-72 min-w-[280px] border-r border-slate-200 align-top space-y-2">
+                        {/* 2. Basin (Sticky column 2 during horizontal scroll) */}
+                        <td className={`sticky left-[80px] z-20 py-4 px-4 w-72 min-w-[288px] max-w-[288px] border-r border-slate-200 align-top space-y-2 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.08)] ${
+                          isAllMembersVerified 
+                            ? 'bg-[#ecfdf5]' 
+                            : index % 2 === 0 
+                              ? 'bg-white' 
+                              : 'bg-[#f8fafc]'
+                        }`}>
                           <div className="flex items-center justify-between">
                             <span className="font-extrabold text-slate-900 text-xs">
                               {r.basinTotalText}
@@ -3391,10 +3397,10 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
               {/* Grand Total Footer */}
               <tfoot>
                 <tr className="bg-slate-900 text-white font-extrabold border-t-2 border-[#9E1B32] text-xs">
-                  <td className="py-4 px-3 text-center font-black text-cyan-400">
+                  <td className="sticky left-0 z-20 bg-slate-900 py-4 px-3 w-20 min-w-[80px] max-w-[80px] text-center font-black text-cyan-400 border-r border-slate-800">
                     TOTAL
                   </td>
-                  <td className="py-4 px-4">
+                  <td className="sticky left-[80px] z-20 bg-slate-900 py-4 px-4 w-72 min-w-[288px] max-w-[288px] border-r border-slate-800 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.3)]">
                     <div className="space-y-0.5">
                       <span className="font-mono text-sm text-white font-black">
                         {stats.grandAllocated.toLocaleString()} Reservoirs
@@ -3462,8 +3468,8 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
             <table className="w-full text-left border-collapse min-w-[1000px]">
               <thead>
                 <tr className="bg-slate-100 text-slate-800 text-xs font-black border-b border-slate-200">
-                  <th className="sticky left-0 z-20 bg-slate-100 py-3 px-4 w-24 min-w-[96px] max-w-[96px] text-left border-r border-slate-200 shadow-[3px_0_6px_-2px_rgba(0,0,0,0.08)]">Round</th>
-                  <th className="py-3 px-4 w-64 min-w-[240px]">Basin</th>
+                  <th className="sticky left-0 z-20 bg-slate-100 py-3 px-4 w-24 min-w-[96px] max-w-[96px] text-left border-r border-slate-200">Round</th>
+                  <th className="sticky left-[96px] z-20 bg-slate-100 py-3 px-4 w-64 min-w-[256px] max-w-[256px] border-r border-slate-200 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.08)]">Basin</th>
                   {matrixMemberNames.map(m => (
                     <th key={m} className="py-3 px-4 border-l border-slate-200 min-w-[140px]">
                       {m}
@@ -3476,12 +3482,14 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.reservoir_matrix;`;
               <tbody className="divide-y divide-slate-200 text-xs">
                 {filteredRounds.map((r, index) => (
                   <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                    <td className={`sticky left-0 z-10 py-3.5 px-4 w-24 min-w-[96px] max-w-[96px] font-black text-slate-900 border-r border-slate-200 shadow-[3px_0_6px_-2px_rgba(0,0,0,0.08)] ${
+                    <td className={`sticky left-0 z-10 py-3.5 px-4 w-24 min-w-[96px] max-w-[96px] font-black text-slate-900 border-r border-slate-200 ${
                       index % 2 === 0 ? 'bg-white' : 'bg-slate-50'
                     }`}>
                       Round {r.round}
                     </td>
-                    <td className="py-3.5 px-4 w-64 min-w-[240px]">
+                    <td className={`sticky left-[96px] z-10 py-3.5 px-4 w-64 min-w-[256px] max-w-[256px] border-r border-slate-200 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.08)] ${
+                      index % 2 === 0 ? 'bg-white' : 'bg-slate-50'
+                    }`}>
                       <div className="font-bold text-slate-800">{r.basinTotalText}</div>
                       <div className="text-[11px] text-slate-500">{r.subBasins[0]}</div>
                     </td>
